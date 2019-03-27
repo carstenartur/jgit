@@ -200,8 +200,9 @@ public class LsRemoteCommand extends
 			try (FetchConnection fc = transport.openFetch()) {
 				refs = fc.getRefs();
 				if (refSpecs.isEmpty())
-					for (Ref r : refs)
-						refmap.put(r.getName(), r);
+                                    refs.forEach((r) -> {
+                                        refmap.put(r.getName(), r);
+                                });
 				else
 					for (Ref r : refs)
 						for (RefSpec rs : refSpecs)

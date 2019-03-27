@@ -53,7 +53,6 @@ import java.text.MessageFormat;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
-import java.util.Comparator;
 import java.util.List;
 
 import org.eclipse.jgit.api.errors.GitAPIException;
@@ -121,25 +120,23 @@ public class ListBranchCommand extends GitCommand<List<Ref>> {
 				refs.add(head);
 			}
 
-			if (listMode == null) {
+			if (null == listMode) {
 				refs.addAll(repo.getRefDatabase().getRefsByPrefix(R_HEADS));
-			} else if (listMode == ListMode.REMOTE) {
-				refs.addAll(repo.getRefDatabase().getRefsByPrefix(R_REMOTES));
-			} else {
-				refs.addAll(repo.getRefDatabase().getRefsByPrefix(R_HEADS,
-						R_REMOTES));
-			}
+			} else switch (listMode) {
+                        case REMOTE:
+                            refs.addAll(repo.getRefDatabase().getRefsByPrefix(R_REMOTES));
+                            break;
+                        default:
+                            refs.addAll(repo.getRefDatabase().getRefsByPrefix(R_HEADS,
+                                    R_REMOTES));
+                            break;
+                    }
 			resultRefs = new ArrayList<>(filterRefs(refs));
 		} catch (IOException e) {
 			throw new JGitInternalException(e.getMessage(), e);
 		}
 
-		Collections.sort(resultRefs, new Comparator<Ref>() {
-			@Override
-			public int compare(Ref o1, Ref o2) {
-				return o1.getName().compareTo(o2.getName());
-			}
-		});
+		Collections.sort(resultRefs, (Ref o1, Ref o2) -> o1.getName().compareTo(o2.getName()));
 		setCallable(false);
 		return resultRefs;
 	}

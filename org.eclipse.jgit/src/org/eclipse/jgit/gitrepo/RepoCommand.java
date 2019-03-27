@@ -639,10 +639,10 @@ public class RepoCommand extends GitCommand<RevCommit> {
 						StringBuilder rec = new StringBuilder();
 						rec.append("/"); //$NON-NLS-1$
 						rec.append(path);
-						for (String group : proj.getGroups()) {
-							rec.append(" "); //$NON-NLS-1$
-							rec.append(group);
-						}
+                                                proj.getGroups().forEach((group) -> {
+                                                    rec.append(" "); //$NON-NLS-1$
+                                                    rec.append(group);
+                                            });
 						rec.append("\n"); //$NON-NLS-1$
 						attributes.append(rec.toString());
 					}
@@ -814,32 +814,32 @@ public class RepoCommand extends GitCommand<RevCommit> {
 	 */
 	private List<RepoProject> renameProjects(List<RepoProject> projects) {
 		Map<String, List<RepoProject>> m = new TreeMap<>();
-		for (RepoProject proj : projects) {
-			List<RepoProject> l = m.get(proj.getName());
-			if (l == null) {
-				l = new ArrayList<>();
-				m.put(proj.getName(), l);
-			}
-			l.add(proj);
-		}
+                projects.forEach((proj) -> {
+                    List<RepoProject> l = m.get(proj.getName());
+                    if (l == null) {
+                        l = new ArrayList<>();
+                        m.put(proj.getName(), l);
+                    }
+                    l.add(proj);
+            });
 
 		List<RepoProject> ret = new ArrayList<>();
-		for (List<RepoProject> ps : m.values()) {
-			boolean nameConflict = ps.size() != 1;
-			for (RepoProject proj : ps) {
-				String name = proj.getName();
-				if (nameConflict) {
-					name += SLASH + proj.getPath();
-				}
-				RepoProject p = new RepoProject(name,
-						proj.getPath(), proj.getRevision(), null,
-						proj.getGroups(), proj.getRecommendShallow());
-				p.setUrl(proj.getUrl());
-				p.addCopyFiles(proj.getCopyFiles());
-				p.addLinkFiles(proj.getLinkFiles());
-				ret.add(p);
-			}
-		}
+                m.values().forEach((ps) -> {
+                    boolean nameConflict = ps.size() != 1;
+                    for (RepoProject proj : ps) {
+                        String name = proj.getName();
+                        if (nameConflict) {
+                            name += SLASH + proj.getPath();
+                        }
+                        RepoProject p = new RepoProject(name,
+                                proj.getPath(), proj.getRevision(), null,
+                                proj.getGroups(), proj.getRecommendShallow());
+                        p.setUrl(proj.getUrl());
+                        p.addCopyFiles(proj.getCopyFiles());
+                        p.addLinkFiles(proj.getLinkFiles());
+                        ret.add(p);
+                    }
+            });
 		return ret;
 	}
 

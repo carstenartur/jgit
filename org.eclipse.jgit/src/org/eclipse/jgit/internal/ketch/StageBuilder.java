@@ -185,9 +185,9 @@ public class StageBuilder {
 		if (git == null || newObjs.size() <= SMALL_BATCH_SIZE) {
 			// Without a source repository can only construct unique set.
 			List<ReceiveCommand> cmds = new ArrayList<>(newObjs.size());
-			for (ObjectId id : newObjs) {
-				stage(cmds, id);
-			}
+                        newObjs.forEach((id) -> {
+                            stage(cmds, id);
+                    });
 			return cmds;
 		}
 
@@ -197,11 +197,11 @@ public class StageBuilder {
 
 		if (inserter == null || commits.size() <= 1
 				|| (cmds.size() + commits.size()) <= SMALL_BATCH_SIZE) {
-			// Without an inserter to aggregate commits, or for a small set of
-			// commits just send one stage ref per commit.
-			for (RevCommit c : commits) {
-				stage(cmds, c.copy());
-			}
+                    // Without an inserter to aggregate commits, or for a small set of
+                    // commits just send one stage ref per commit.
+                    commits.forEach((c) -> {
+                        stage(cmds, c.copy());
+                    });
 			return cmds;
 		}
 

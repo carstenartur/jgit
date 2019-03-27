@@ -111,15 +111,12 @@ public class DirCache {
 
 	private static final byte[] NO_CHECKSUM = {};
 
-	static final Comparator<DirCacheEntry> ENT_CMP = new Comparator<DirCacheEntry>() {
-		@Override
-		public int compare(DirCacheEntry o1, DirCacheEntry o2) {
-			final int cr = cmp(o1, o2);
-			if (cr != 0)
-				return cr;
-			return o1.getStage() - o2.getStage();
-		}
-	};
+	static final Comparator<DirCacheEntry> ENT_CMP = (DirCacheEntry o1, DirCacheEntry o2) -> {
+            final int cr = cmp(o1, o2);
+            if (cr != 0)
+                return cr;
+            return o1.getStage() - o2.getStage();
+        };
 
 	static int cmp(DirCacheEntry a, DirCacheEntry b) {
 		return cmp(a.path, a.path.length, b);
@@ -253,13 +250,7 @@ public class DirCache {
 
 		try {
 			c.read();
-		} catch (IOException e) {
-			c.unlock();
-			throw e;
-		} catch (RuntimeException e) {
-			c.unlock();
-			throw e;
-		} catch (Error e) {
+		} catch (IOException | RuntimeException | Error e) {
 			c.unlock();
 			throw e;
 		}
@@ -636,13 +627,7 @@ public class DirCache {
 		try (OutputStream o = tmp.getOutputStream();
 				OutputStream bo = new BufferedOutputStream(o)) {
 			writeTo(liveFile.getParentFile(), bo);
-		} catch (IOException err) {
-			tmp.unlock();
-			throw err;
-		} catch (RuntimeException err) {
-			tmp.unlock();
-			throw err;
-		} catch (Error err) {
+		} catch (IOException | RuntimeException | Error err) {
 			tmp.unlock();
 			throw err;
 		}

@@ -121,13 +121,11 @@ public class AttributesHandler {
 			if (node == null) {
 				continue;
 			}
-			for (AttributesRule rule : node.getRules()) {
-				if (rule.getPattern().startsWith(MACRO_PREFIX)) {
-					expansions.put(rule.getPattern()
-							.substring(MACRO_PREFIX.length()).trim(),
-							rule.getAttributes());
-				}
-			}
+                        node.getRules().stream().filter((rule) -> (rule.getPattern().startsWith(MACRO_PREFIX))).forEachOrdered((rule) -> {
+                            expansions.put(rule.getPattern()
+                                    .substring(MACRO_PREFIX.length()).trim(),
+                                    rule.getAttributes());
+                    });
 		}
 	}
 
@@ -158,12 +156,11 @@ public class AttributesHandler {
 		// Gets the attributes located in the global attribute file
 		mergeGlobalAttributes(entryPath, isDirectory, attributes);
 
-		// now after all attributes are collected - in the correct hierarchy
-		// order - remove all unspecified entries (the ! marker)
-		for (Attribute a : attributes.getAll()) {
-			if (a.getState() == State.UNSPECIFIED)
-				attributes.remove(a.getKey());
-		}
+            // now after all attributes are collected - in the correct hierarchy
+            // order - remove all unspecified entries (the ! marker)
+            attributes.getAll().stream().filter((a) -> (a.getState() == State.UNSPECIFIED)).forEachOrdered((a) -> {
+                attributes.remove(a.getKey());
+            });
 
 		return attributes;
 	}
@@ -344,18 +341,19 @@ public class AttributesHandler {
 			break;
 		}
 		case UNSPECIFIED: {
-			for (Attribute e : expansion) {
-				expandMacro(new Attribute(e.getKey(), State.UNSPECIFIED),
-						result);
-			}
+                    expansion.forEach((e) -> {
+                        expandMacro(new Attribute(e.getKey(), State.UNSPECIFIED),
+                                result);
+                    });
 			break;
 		}
 		case SET:
 		default:
-			for (Attribute e : expansion) {
-				expandMacro(e, result);
-			}
+                    expansion.forEach((e) -> {
+                        expandMacro(e, result);
+                    });
 			break;
+
 		}
 	}
 

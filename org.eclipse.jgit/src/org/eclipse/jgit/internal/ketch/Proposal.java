@@ -299,11 +299,9 @@ public class Proposal {
 
 	/** Set command result as OK. */
 	void success() {
-		for (Command c : commands) {
-			if (c.getResult() == NOT_ATTEMPTED) {
-				c.setResult(OK);
-			}
-		}
+            commands.stream().filter((c) -> (c.getResult() == NOT_ATTEMPTED)).forEachOrdered((c) -> {
+                c.setResult(OK);
+            });
 		notifyState(EXECUTED);
 	}
 
@@ -399,9 +397,9 @@ public class Proposal {
 			state.notifyAll();
 		}
 		if (s.isDone()) {
-			for (Runnable callback : listeners) {
-				callback.run();
-			}
+                    listeners.forEach((callback) -> {
+                        callback.run();
+                    });
 			listeners.clear();
 		}
 	}

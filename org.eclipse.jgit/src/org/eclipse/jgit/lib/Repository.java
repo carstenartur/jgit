@@ -923,12 +923,14 @@ public abstract class Repository implements AutoCloseable {
 		AbbreviatedObjectId id = AbbreviatedObjectId.fromString(revstr);
 		try (ObjectReader reader = newObjectReader()) {
 			Collection<ObjectId> matches = reader.resolve(id);
-			if (matches.size() == 0)
-				return null;
-			else if (matches.size() == 1)
-				return matches.iterator().next();
-			else
-				throw new AmbiguousObjectException(id, matches);
+                    switch (matches.size()) {
+                        case 0:
+                            return null;
+                        case 1:
+                            return matches.iterator().next();
+                        default:
+                            throw new AmbiguousObjectException(id, matches);
+                    }
 		}
 	}
 
@@ -1277,12 +1279,9 @@ public abstract class Repository implements AutoCloseable {
 			CorruptObjectException, IOException {
 		// we want DirCache to inform us so that we can inform registered
 		// listeners about index changes
-		IndexChangedListener l = new IndexChangedListener() {
-			@Override
-			public void onIndexChanged(IndexChangedEvent event) {
-				notifyIndexChanged(true);
-			}
-		};
+		IndexChangedListener l = (IndexChangedEvent event) -> {
+                    notifyIndexChanged(true);
+                };
 		return DirCache.lock(this, l);
 	}
 

@@ -45,7 +45,6 @@ package org.eclipse.jgit.api;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.Comparator;
 import java.util.List;
 
 import org.eclipse.jgit.api.errors.GitAPIException;
@@ -81,18 +80,13 @@ public class ListTagCommand extends GitCommand<List<Ref>> {
 		try (RevWalk revWalk = new RevWalk(repo)) {
 			List<Ref> refList = repo.getRefDatabase()
 					.getRefsByPrefix(Constants.R_TAGS);
-			for (Ref ref : refList) {
-				tags.add(ref);
-			}
+                        refList.forEach((ref) -> {
+                            tags.add(ref);
+                    });
 		} catch (IOException e) {
 			throw new JGitInternalException(e.getMessage(), e);
 		}
-		Collections.sort(tags, new Comparator<Ref>() {
-			@Override
-			public int compare(Ref o1, Ref o2) {
-				return o1.getName().compareTo(o2.getName());
-			}
-		});
+		Collections.sort(tags, (Ref o1, Ref o2) -> o1.getName().compareTo(o2.getName()));
 		setCallable(false);
 		return tags;
 	}

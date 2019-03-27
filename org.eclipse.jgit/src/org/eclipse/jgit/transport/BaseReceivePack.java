@@ -1433,10 +1433,9 @@ public abstract class BaseReceivePack {
 	 * @return {@code true} if a pack is expected based on the list of commands.
 	 */
 	protected boolean needPack() {
-		for (ReceiveCommand cmd : commands) {
-			if (cmd.getType() != ReceiveCommand.Type.DELETE)
-				return true;
-		}
+            if (commands.stream().anyMatch((cmd) -> (cmd.getType() != ReceiveCommand.Type.DELETE))) {
+                return true;
+            }
 		return false;
 	}
 

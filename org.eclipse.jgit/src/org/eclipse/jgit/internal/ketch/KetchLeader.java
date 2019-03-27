@@ -342,9 +342,9 @@ public abstract class KetchLeader {
 		try {
 			if (refTree == null) {
 				initialize();
-				for (Proposal p : queued) {
-					refTree.apply(p.getCommands());
-				}
+                                queued.forEach((p) -> {
+                                    refTree.apply(p.getCommands());
+                            });
 			} else if (roundHoldsReferenceToRefTree) {
 				refTree = refTree.copy();
 				roundHoldsReferenceToRefTree = false;
@@ -385,12 +385,7 @@ public abstract class KetchLeader {
 
 	private void scheduleLeader() {
 		idle = false;
-		system.getExecutor().execute(new Runnable() {
-			@Override
-			public void run() {
-				runLeader();
-			}
-		});
+		system.getExecutor().execute(this::runLeader);
 	}
 
 	private void runLeader() {

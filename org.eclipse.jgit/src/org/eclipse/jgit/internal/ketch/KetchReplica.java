@@ -368,10 +368,10 @@ public abstract class KetchReplica {
 
 		// TODO(sop) Lagging replicas should build accept on the fly.
 		if (round.stageCommands != null) {
-			for (ReceiveCommand cmd : round.stageCommands) {
-				// TODO(sop): Do not send certain object graphs to replica.
-				cmds.add(copy(cmd));
-			}
+                    round.stageCommands.forEach((cmd) -> {
+                        // TODO(sop): Do not send certain object graphs to replica.
+                        cmds.add(copy(cmd));
+                    });
 		}
 		cmds.add(new ReceiveCommand(
 				round.acceptedOldIndex, round.acceptedNewIndex,
@@ -427,11 +427,11 @@ public abstract class KetchReplica {
 
 	private static void delete(List<ReceiveCommand> cmds,
 			List<ReceiveCommand> createCmds) {
-		for (ReceiveCommand cmd : createCmds) {
-			ObjectId id = cmd.getNewId();
-			String name = cmd.getRefName();
-			cmds.add(new ReceiveCommand(id, ObjectId.zeroId(), name));
-		}
+            createCmds.forEach((cmd) -> {
+                ObjectId id = cmd.getNewId();
+                String name = cmd.getRefName();
+                cmds.add(new ReceiveCommand(id, ObjectId.zeroId(), name));
+            });
 	}
 
 	/**
@@ -459,39 +459,39 @@ public abstract class KetchReplica {
 
 		// Collapse all queued requests into a single request.
 		Map<String, ReceiveCommand> cmdMap = new HashMap<>();
-		for (ReplicaPushRequest req : queued) {
-			for (ReceiveCommand cmd : req.getCommands()) {
-				String name = cmd.getRefName();
-				ReceiveCommand old = cmdMap.remove(name);
-				if (old != null) {
-					cmd = new ReceiveCommand(
-							old.getOldId(), cmd.getNewId(),
-							name);
-				}
-				cmdMap.put(name, cmd);
-			}
-		}
+                queued.forEach((req) -> {
+                    for (ReceiveCommand cmd : req.getCommands()) {
+                        String name = cmd.getRefName();
+                        ReceiveCommand old = cmdMap.remove(name);
+                        if (old != null) {
+                            cmd = new ReceiveCommand(
+                                    old.getOldId(), cmd.getNewId(),
+                                    name);
+                        }
+                        cmdMap.put(name, cmd);
+                    }
+            });
 		queued.clear();
 		waiting.clear();
 
 		List<ReceiveCommand> next = new ArrayList<>(cmdMap.values());
-		for (ReceiveCommand cmd : next) {
-			running.put(cmd.getRefName(), cmd);
-		}
+                next.forEach((cmd) -> {
+                    running.put(cmd.getRefName(), cmd);
+            });
 		startPush(new ReplicaPushRequest(this, next));
 	}
 
 	private void pushAsync(ReplicaPushRequest req) {
 		if (defer(req)) {
-			// TODO(sop) Collapse during long retry outage.
-			for (ReceiveCommand cmd : req.getCommands()) {
-				waiting.put(cmd.getRefName(), cmd);
-			}
+                    // TODO(sop) Collapse during long retry outage.
+                    req.getCommands().forEach((cmd) -> {
+                        waiting.put(cmd.getRefName(), cmd);
+                    });
 			queued.add(req);
 		} else {
-			for (ReceiveCommand cmd : req.getCommands()) {
-				running.put(cmd.getRefName(), cmd);
-			}
+                    req.getCommands().forEach((cmd) -> {
+                        running.put(cmd.getRefName(), cmd);
+                    });
 			startPush(req);
 		}
 	}
@@ -630,9 +630,9 @@ public abstract class KetchReplica {
 
 		leader.lock.lock();
 		try {
-			for (ReceiveCommand cmd : req.getCommands()) {
-				running.remove(cmd.getRefName());
-			}
+                    req.getCommands().forEach((cmd) -> {
+                        running.remove(cmd.getRefName());
+                    });
 
 			Throwable err = req.getException();
 			if (err != null) {
@@ -755,14 +755,12 @@ public abstract class KetchReplica {
 			}
 		}
 
-		// Delete any extra references not in the committed state.
-		for (Ref ref : remote.values()) {
-			if (canDelete(ref)) {
-				delta.add(new ReceiveCommand(
-					ref.getObjectId(), ObjectId.zeroId(),
-					ref.getName()));
-			}
-		}
+            // Delete any extra references not in the committed state.
+            remote.values().stream().filter((ref) -> (canDelete(ref))).forEachOrdered((ref) -> {
+                delta.add(new ReceiveCommand(
+                        ref.getObjectId(), ObjectId.zeroId(),
+                        ref.getName()));
+            });
 		return delta;
 	}
 
@@ -771,11 +769,8 @@ public abstract class KetchReplica {
 		if (HEAD.equals(name)) {
 			return false;
 		}
-		if (name.startsWith(getSystem().getTxnNamespace())) {
-			return false;
-		}
-		// TODO(sop) Do not delete precious names from replica.
-		return true;
+            // TODO(sop) Do not delete precious names from replica.
+		return !name.startsWith(getSystem().getTxnNamespace());
 	}
 
 	@NonNull

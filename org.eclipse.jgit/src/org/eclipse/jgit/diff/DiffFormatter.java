@@ -590,10 +590,9 @@ public class DiffFormatter implements AutoCloseable {
 
 	private boolean isAdd(List<DiffEntry> files) {
 		String oldPath = ((FollowFilter) pathFilter).getPath();
-		for (DiffEntry ent : files) {
-			if (ent.getChangeType() == ADD && ent.getNewPath().equals(oldPath))
-				return true;
-		}
+            if (files.stream().anyMatch((ent) -> (ent.getChangeType() == ADD && ent.getNewPath().equals(oldPath)))) {
+                return true;
+            }
 		return false;
 	}
 
@@ -1053,20 +1052,23 @@ public class DiffFormatter implements AutoCloseable {
 		AbbreviatedObjectId id = entry.getId(side);
 		if (!id.isComplete()) {
 			Collection<ObjectId> ids = reader.resolve(id);
-			if (ids.size() == 1) {
-				id = AbbreviatedObjectId.fromObjectId(ids.iterator().next());
-				switch (side) {
-				case OLD:
-					entry.oldId = id;
-					break;
-				case NEW:
-					entry.newId = id;
-					break;
-				}
-			} else if (ids.size() == 0)
-				throw new MissingObjectException(id, Constants.OBJ_BLOB);
-			else
-				throw new AmbiguousObjectException(id, ids);
+                    switch (ids.size()) {
+                        case 1:
+                            id = AbbreviatedObjectId.fromObjectId(ids.iterator().next());
+                            switch (side) {
+                                case OLD:
+                                    entry.oldId = id;
+                                    break;
+                                case NEW:
+                                    entry.newId = id;
+                                    break;
+                            }
+                            break;
+                        case 0:
+                            throw new MissingObjectException(id, Constants.OBJ_BLOB);
+                        default:
+                            throw new AmbiguousObjectException(id, ids);
+                    }
 		}
 
 		ObjectLoader ldr = LfsFactory.getInstance().applySmudgeFilter(repository,

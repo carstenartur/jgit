@@ -549,12 +549,12 @@ public class RenameDetector {
 		ArrayList<DiffEntry> uniqueAdds = new ArrayList<>(added.size());
 		ArrayList<List<DiffEntry>> nonUniqueAdds = new ArrayList<>();
 
-		for (Object o : addedMap.values()) {
-			if (o instanceof DiffEntry)
-				uniqueAdds.add((DiffEntry) o);
-			else
-				nonUniqueAdds.add((List<DiffEntry>) o);
-		}
+                addedMap.values().forEach((o) -> {
+                    if (o instanceof DiffEntry)
+                        uniqueAdds.add((DiffEntry) o);
+                    else
+                        nonUniqueAdds.add((List<DiffEntry>) o);
+            });
 
 		ArrayList<DiffEntry> left = new ArrayList<>(added.size());
 
@@ -598,15 +598,13 @@ public class RenameDetector {
 				if (best != null) {
 					d.changeType = ChangeType.RENAME;
 					entries.add(exactRename(d, best));
-					for (DiffEntry a : adds) {
-						if (a != best) {
-							if (sameType(d.oldMode, a.newMode)) {
-								entries.add(exactCopy(d, a));
-							} else {
-								left.add(a);
-							}
-						}
-					}
+                                        adds.stream().filter((a) -> (a != best)).forEachOrdered((a) -> {
+                                            if (sameType(d.oldMode, a.newMode)) {
+                                                entries.add(exactCopy(d, a));
+                                            } else {
+                                                left.add(a);
+                                            }
+                                    });
 				} else {
 					left.addAll(adds);
 				}
@@ -671,19 +669,18 @@ public class RenameDetector {
 		added = left;
 
 		deleted = new ArrayList<>(deletedMap.size());
-		for (Object o : deletedMap.values()) {
-			if (o instanceof DiffEntry) {
-				DiffEntry e = (DiffEntry) o;
-				if (e.changeType == ChangeType.DELETE)
-					deleted.add(e);
-			} else {
-				List<DiffEntry> list = (List<DiffEntry>) o;
-				for (DiffEntry e : list) {
-					if (e.changeType == ChangeType.DELETE)
-						deleted.add(e);
-				}
-			}
-		}
+                deletedMap.values().forEach((o) -> {
+                    if (o instanceof DiffEntry) {
+                        DiffEntry e = (DiffEntry) o;
+                        if (e.changeType == ChangeType.DELETE)
+                            deleted.add(e);
+                    } else {
+                        List<DiffEntry> list = (List<DiffEntry>) o;
+                        list.stream().filter((e) -> (e.changeType == ChangeType.DELETE)).forEachOrdered((e) -> {
+                            deleted.add(e);
+                        });
+                    }
+            });
 		pm.endTask();
 	}
 

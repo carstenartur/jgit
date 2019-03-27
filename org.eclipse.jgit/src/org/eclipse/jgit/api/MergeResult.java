@@ -342,9 +342,10 @@ public class MergeResult {
 		this.description = description;
 		this.failingPaths = failingPaths;
 		if (lowLevelResults != null)
-			for (Map.Entry<String, org.eclipse.jgit.merge.MergeResult<?>> result : lowLevelResults
-					.entrySet())
-				addConflict(result.getKey(), result.getValue());
+                    lowLevelResults
+                            .entrySet().forEach((result) -> {
+                                addConflict(result.getKey(), result.getValue());
+                });
 	}
 
 	/**

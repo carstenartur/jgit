@@ -325,9 +325,9 @@ public class PushCommand extends
 	public PushCommand setRefLeaseSpecs(List<RefLeaseSpec> specs) {
 		checkCallable();
 		this.refLeaseSpecs.clear();
-		for (RefLeaseSpec spec : specs) {
-			refLeaseSpecs.put(spec.getRef(), spec);
-		}
+                specs.forEach((spec) -> {
+                    refLeaseSpecs.put(spec.getRef(), spec);
+            });
 		return this;
 	}
 

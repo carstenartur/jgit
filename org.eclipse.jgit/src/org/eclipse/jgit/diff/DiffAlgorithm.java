@@ -91,6 +91,7 @@ public abstract class DiffAlgorithm {
 	/**
 	 * Compare two sequences and identify a list of edits between them.
 	 *
+     * @param <S>
 	 * @param cmp
 	 *            the comparator supplying the element equivalence function.
 	 * @param a
@@ -241,15 +242,16 @@ public abstract class DiffAlgorithm {
 	}
 
 	/**
-	 * Compare two sequences and identify a list of edits between them.
+	 * Compare two sequences and identify a list of edits between them.This method should be invoked only after the two sequences have been
+ proven to have no common starting or ending elements.
 	 *
-	 * This method should be invoked only after the two sequences have been
-	 * proven to have no common starting or ending elements. The expected
-	 * elimination of common starting and ending elements is automatically
-	 * performed by the {@link #diff(SequenceComparator, Sequence, Sequence)}
+	 * The expected
+ elimination of common starting and ending elements is automatically
+ performed by the {@link #diff(SequenceComparator, Sequence, Sequence)}
 	 * method, which invokes this method using
 	 * {@link org.eclipse.jgit.diff.Subsequence}s.
 	 *
+     * @param <S>
 	 * @param cmp
 	 *            the comparator supplying the element equivalence function.
 	 * @param a

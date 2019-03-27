@@ -124,9 +124,9 @@ class ProposalRound extends Round {
 
 	@Override
 	void start() throws IOException {
-		for (Proposal p : todo) {
-			p.notifyState(RUNNING);
-		}
+            todo.forEach((p) -> {
+                p.notifyState(RUNNING);
+            });
 		try {
 			ObjectId id;
 			try (Repository git = leader.openRepository();
@@ -136,9 +136,9 @@ class ProposalRound extends Round {
 			}
 			runAsync(id);
 		} catch (NoOp e) {
-			for (Proposal p : todo) {
-				p.success();
-			}
+                    todo.forEach((p) -> {
+                        p.success();
+                });
 			leader.lock.lock();
 			try {
 				leader.nextRound();
@@ -264,16 +264,16 @@ class ProposalRound extends Round {
 	}
 
 	void abort() {
-		for (Proposal p : todo) {
-			p.abort();
-		}
+            todo.forEach((p) -> {
+                p.abort();
+            });
 	}
 
 	@Override
 	void success() {
-		for (Proposal p : todo) {
-			p.success();
-		}
+            todo.forEach((p) -> {
+                p.success();
+            });
 	}
 
 	private List<ReceiveCommand> makeStageList(Repository git,
@@ -282,14 +282,14 @@ class ProposalRound extends Round {
 		// avoiding sending multiple objects in a rapid fast-forward chain, or
 		// rewritten content.
 		Map<String, ObjectId> byRef = new HashMap<>();
-		for (Proposal p : todo) {
-			for (Command c : p.getCommands()) {
-				Ref n = c.getNewRef();
-				if (n != null && !n.isSymbolic()) {
-					byRef.put(n.getName(), n.getObjectId());
-				}
-			}
-		}
+                todo.forEach((p) -> {
+                    for (Command c : p.getCommands()) {
+                        Ref n = c.getNewRef();
+                        if (n != null && !n.isSymbolic()) {
+                            byRef.put(n.getName(), n.getObjectId());
+                        }
+                    }
+            });
 		if (byRef.isEmpty()) {
 			return Collections.emptyList();
 		}

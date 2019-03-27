@@ -199,19 +199,17 @@ class SimilarityRenameDetector {
 
 	private static List<DiffEntry> compactSrcList(List<DiffEntry> in) {
 		ArrayList<DiffEntry> r = new ArrayList<>(in.size());
-		for (DiffEntry e : in) {
-			if (e.changeType == ChangeType.DELETE)
-				r.add(e);
-		}
+                in.stream().filter((e) -> (e.changeType == ChangeType.DELETE)).forEachOrdered((e) -> {
+                    r.add(e);
+            });
 		return r;
 	}
 
 	private static List<DiffEntry> compactDstList(List<DiffEntry> in) {
 		ArrayList<DiffEntry> r = new ArrayList<>(in.size());
-		for (DiffEntry e : in) {
-			if (e != null)
-				r.add(e);
-		}
+                in.stream().filter((e) -> (e != null)).forEachOrdered((e) -> {
+                    r.add(e);
+            });
 		return r;
 	}
 

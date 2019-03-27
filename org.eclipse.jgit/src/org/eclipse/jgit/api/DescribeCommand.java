@@ -246,9 +246,9 @@ public class DescribeCommand extends GitCommand<String> {
 	};
 
 	private Optional<Ref> getBestMatch(List<Ref> tags) {
-		if (tags == null || tags.size() == 0) {
+		if (tags == null || tags.isEmpty()) {
 			return Optional.empty();
-		} else if (matchers.size() == 0) {
+		} else if (matchers.isEmpty()) {
 			Collections.sort(tags, TAG_TIE_BREAKER);
 			return Optional.of(tags.get(0));
 		} else {
@@ -402,12 +402,7 @@ public class DescribeCommand extends GitCommand<String> {
 			if (candidates.isEmpty())
 				return null;
 
-			Candidate best = Collections.min(candidates, new Comparator<Candidate>() {
-				@Override
-				public int compare(Candidate o1, Candidate o2) {
-					return o1.depth - o2.depth;
-				}
-			});
+			Candidate best = Collections.min(candidates, (Candidate o1, Candidate o2) -> o1.depth - o2.depth);
 
 			return best.describe(target);
 		} catch (IOException e) {

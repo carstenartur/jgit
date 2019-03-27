@@ -225,10 +225,10 @@ public class AttributesRule {
 	public String toString() {
 		StringBuilder sb = new StringBuilder();
 		sb.append(pattern);
-		for (Attribute a : attributes) {
-			sb.append(" "); //$NON-NLS-1$
-			sb.append(a);
-		}
+                attributes.forEach((a) -> {
+                    sb.append(" "); //$NON-NLS-1$
+                    sb.append(a);
+            });
 		return sb.toString();
 
 	}

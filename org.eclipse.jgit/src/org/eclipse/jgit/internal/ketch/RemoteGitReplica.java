@@ -139,21 +139,18 @@ public class RemoteGitReplica extends KetchReplica {
 	/** {@inheritDoc} */
 	@Override
 	protected void startPush(ReplicaPushRequest req) {
-		getSystem().getExecutor().execute(new Runnable() {
-			@Override
-			public void run() {
-				try (Repository git = getLeader().openRepository()) {
-					try {
-						push(git, req);
-						req.done(git);
-					} catch (Throwable err) {
-						req.setException(git, err);
-					}
-				} catch (IOException err) {
-					req.setException(null, err);
-				}
-			}
-		});
+		getSystem().getExecutor().execute(() -> {
+                    try (Repository git = getLeader().openRepository()) {
+                        try {
+                            push(git, req);
+                            req.done(git);
+                        } catch (Throwable err) {
+                            req.setException(git, err);
+                        }
+                    } catch (IOException err) {
+                        req.setException(null, err);
+                    }
+                });
 	}
 
 	private void push(Repository repo, ReplicaPushRequest req)
@@ -168,9 +165,9 @@ public class RemoteGitReplica extends KetchReplica {
 			transport.setPushAtomic(true);
 			adv = push(repo, transport, cmds);
 		}
-		for (RemoteCommand c : cmds) {
-			c.copyStatusToResult();
-		}
+                cmds.forEach((c) -> {
+                    c.copyStatusToResult();
+            });
 		req.setRefs(adv);
 	}
 
@@ -237,17 +234,17 @@ public class RemoteGitReplica extends KetchReplica {
 	private static Map<String, RemoteRefUpdate> asUpdateMap(
 			List<RemoteCommand> cmds) {
 		Map<String, RemoteRefUpdate> m = new LinkedHashMap<>();
-		for (RemoteCommand cmd : cmds) {
-			m.put(cmd.getRemoteName(), cmd);
-		}
+                cmds.forEach((cmd) -> {
+                    m.put(cmd.getRemoteName(), cmd);
+            });
 		return m;
 	}
 
 	private static void abort(List<RemoteCommand> cmds) {
 		List<ReceiveCommand> tmp = new ArrayList<>(cmds.size());
-		for (RemoteCommand cmd : cmds) {
-			tmp.add(cmd.cmd);
-		}
+                cmds.forEach((cmd) -> {
+                    tmp.add(cmd.cmd);
+            });
 		ReceiveCommand.abort(tmp);
 	}
 
@@ -277,9 +274,9 @@ public class RemoteGitReplica extends KetchReplica {
 					want.add(ref);
 				}
 			}
-			for (ObjectId id : req.getWantObjects()) {
-				want.add(new ObjectIdRef.Unpeeled(NETWORK, id.name(), id));
-			}
+                        req.getWantObjects().forEach((id) -> {
+                            want.add(new ObjectIdRef.Unpeeled(NETWORK, id.name(), id));
+                    });
 
 			conn.fetch(NullProgressMonitor.INSTANCE, want,
 					Collections.<ObjectId> emptySet());

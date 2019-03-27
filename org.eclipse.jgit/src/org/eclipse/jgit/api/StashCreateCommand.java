@@ -344,8 +344,9 @@ public class StashCreateCommand extends GitCommand<RevCommit> {
 					DirCache untrackedDirCache = DirCache.newInCore();
 					DirCacheBuilder untrackedBuilder = untrackedDirCache
 							.builder();
-					for (DirCacheEntry entry : untracked)
-						untrackedBuilder.add(entry);
+                                        untracked.forEach((entry) -> {
+                                            untrackedBuilder.add(entry);
+                                    });
 					untrackedBuilder.finish();
 
 					builder.setParentIds(new ObjectId[0]);
@@ -359,10 +360,12 @@ public class StashCreateCommand extends GitCommand<RevCommit> {
 				// Commit working tree changes
 				if (!wtEdits.isEmpty() || !wtDeletes.isEmpty()) {
 					DirCacheEditor editor = cache.editor();
-					for (PathEdit edit : wtEdits)
-						editor.add(edit);
-					for (String path : wtDeletes)
-						editor.add(new DeletePath(path));
+                                        wtEdits.forEach((edit) -> {
+                                            editor.add(edit);
+                                    });
+                                        wtDeletes.forEach((path) -> {
+                                            editor.add(new DeletePath(path));
+                                    });
 					editor.finish();
 				}
 				builder.setParentId(headCommit);
