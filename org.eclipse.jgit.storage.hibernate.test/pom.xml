@@ -31,6 +31,11 @@
     <maven.javadoc.skip>true</maven.javadoc.skip>
     <hibernate-version>6.6.13.Final</hibernate-version>
     <h2-version>2.3.232</h2-version>
+    <hsqldb-version>2.7.4</hsqldb-version>
+    <testcontainers-version>1.20.4</testcontainers-version>
+    <postgresql-driver-version>42.7.4</postgresql-driver-version>
+    <mysql-driver-version>8.3.0</mysql-driver-version>
+    <mariadb-driver-version>3.5.1</mariadb-driver-version>
   </properties>
 
   <dependencies>
@@ -67,9 +72,62 @@
     </dependency>
 
     <dependency>
+      <groupId>org.hsqldb</groupId>
+      <artifactId>hsqldb</artifactId>
+      <version>${hsqldb-version}</version>
+      <scope>test</scope>
+    </dependency>
+
+    <dependency>
       <groupId>org.hibernate.orm</groupId>
       <artifactId>hibernate-core</artifactId>
       <version>${hibernate-version}</version>
+      <scope>test</scope>
+    </dependency>
+
+    <!-- Testcontainers -->
+    <dependency>
+      <groupId>org.testcontainers</groupId>
+      <artifactId>testcontainers</artifactId>
+      <version>${testcontainers-version}</version>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.testcontainers</groupId>
+      <artifactId>postgresql</artifactId>
+      <version>${testcontainers-version}</version>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.testcontainers</groupId>
+      <artifactId>mysql</artifactId>
+      <version>${testcontainers-version}</version>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.testcontainers</groupId>
+      <artifactId>mariadb</artifactId>
+      <version>${testcontainers-version}</version>
+      <scope>test</scope>
+    </dependency>
+
+    <!-- JDBC drivers for Testcontainer tests -->
+    <dependency>
+      <groupId>org.postgresql</groupId>
+      <artifactId>postgresql</artifactId>
+      <version>${postgresql-driver-version}</version>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>com.mysql</groupId>
+      <artifactId>mysql-connector-j</artifactId>
+      <version>${mysql-driver-version}</version>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.mariadb.jdbc</groupId>
+      <artifactId>mariadb-java-client</artifactId>
+      <version>${mariadb-driver-version}</version>
       <scope>test</scope>
     </dependency>
   </dependencies>
@@ -99,8 +157,27 @@
         <artifactId>maven-surefire-plugin</artifactId>
         <configuration>
           <argLine>@{argLine} -Djava.io.tmpdir=${project.build.directory} -Xmx512m</argLine>
+          <!-- Exclude Testcontainer-based tests by default (require Docker) -->
+          <excludedGroups>org.eclipse.jgit.storage.hibernate.test.category.DatabaseTest</excludedGroups>
         </configuration>
       </plugin>
     </plugins>
   </build>
+
+  <profiles>
+    <!-- Activate with -Pdb-tests to include Testcontainer-based database tests -->
+    <profile>
+      <id>db-tests</id>
+      <build>
+        <plugins>
+          <plugin>
+            <artifactId>maven-surefire-plugin</artifactId>
+            <configuration>
+              <excludedGroups/>
+            </configuration>
+          </plugin>
+        </plugins>
+      </build>
+    </profile>
+  </profiles>
 </project>

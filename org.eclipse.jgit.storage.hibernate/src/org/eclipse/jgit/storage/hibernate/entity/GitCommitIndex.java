@@ -36,7 +36,7 @@ public class GitCommitIndex {
 	@Column(name = "object_id", length = 40, nullable = false, unique = true)
 	private String objectId;
 
-	@Column(name = "commit_message", columnDefinition = "TEXT")
+	@Column(name = "commit_message", length = 65535)
 	private String commitMessage;
 
 	@Column(name = "author_name")
@@ -48,10 +48,10 @@ public class GitCommitIndex {
 	@Column(name = "commit_time")
 	private Instant commitTime;
 
-	@Column(name = "parent_ids", columnDefinition = "TEXT")
+	@Column(name = "parent_ids", length = 65535)
 	private String parentIds;
 
-	@Column(name = "changed_paths", columnDefinition = "TEXT")
+	@Column(name = "changed_paths", length = 65535)
 	private String changedPaths;
 
 	/** Default constructor for JPA. */
