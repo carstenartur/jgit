@@ -1,0 +1,104 @@
+/*
+ * Copyright (C) 2025, Google Inc. and others
+ *
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Distribution License v. 1.0 which is available at
+ * https://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
+ */
+package org.eclipse.jgit.storage.hibernate.repository;
+
+import org.eclipse.jgit.annotations.Nullable;
+import org.eclipse.jgit.internal.storage.dfs.DfsReaderOptions;
+import org.eclipse.jgit.internal.storage.dfs.DfsRepository;
+import org.eclipse.jgit.internal.storage.dfs.DfsRepositoryDescription;
+import org.eclipse.jgit.lib.RefDatabase;
+import org.eclipse.jgit.storage.hibernate.objects.HibernateObjDatabase;
+import org.eclipse.jgit.storage.hibernate.refs.HibernateRefDatabase;
+import org.hibernate.SessionFactory;
+
+/**
+ * A Git repository stored in a relational database via Hibernate.
+ * <p>
+ * This implementation extends the DFS (Distributed File System) repository
+ * abstraction, replacing in-memory or filesystem storage with database-backed
+ * storage using Hibernate ORM.
+ * <p>
+ * Objects, refs, and pack data are stored in database tables. The reftable
+ * format is used for reference storage, persisted as pack extensions in the
+ * database.
+ */
+public class HibernateRepository extends DfsRepository {
+
+	private final HibernateObjDatabase objdb;
+
+	private final HibernateRefDatabase refdb;
+
+	private final SessionFactory sessionFactory;
+
+	private final String repositoryName;
+
+	private String gitwebDescription;
+
+	/**
+	 * Create a new database-backed repository.
+	 *
+	 * @param builder
+	 *            the repository builder with configuration
+	 */
+	public HibernateRepository(HibernateRepositoryBuilder builder) {
+		super(builder);
+		this.sessionFactory = builder.getSessionFactory();
+		this.repositoryName = builder.getRepositoryName();
+		if (this.repositoryName == null) {
+			DfsRepositoryDescription desc = builder.getRepositoryDescription();
+			throw new IllegalArgumentException(
+					"Repository name is required; description=" //$NON-NLS-1$
+							+ (desc != null ? desc.getRepositoryName()
+									: "null")); //$NON-NLS-1$
+		}
+		this.objdb = new HibernateObjDatabase(this, new DfsReaderOptions(),
+				sessionFactory, repositoryName);
+		this.refdb = new HibernateRefDatabase(this);
+	}
+
+	@Override
+	public HibernateObjDatabase getObjectDatabase() {
+		return objdb;
+	}
+
+	@Override
+	public RefDatabase getRefDatabase() {
+		return refdb;
+	}
+
+	/**
+	 * Get the repository name used for database partitioning.
+	 *
+	 * @return the repository name
+	 */
+	public String getRepositoryName() {
+		return repositoryName;
+	}
+
+	/**
+	 * Get the Hibernate session factory.
+	 *
+	 * @return the session factory
+	 */
+	public SessionFactory getSessionFactory() {
+		return sessionFactory;
+	}
+
+	@Override
+	@Nullable
+	public String getGitwebDescription() {
+		return gitwebDescription;
+	}
+
+	@Override
+	public void setGitwebDescription(@Nullable String d) {
+		gitwebDescription = d;
+	}
+}
