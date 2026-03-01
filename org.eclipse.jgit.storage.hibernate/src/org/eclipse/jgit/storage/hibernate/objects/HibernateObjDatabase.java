@@ -38,7 +38,8 @@ import org.hibernate.SessionFactory;
  * database-based Git object storage.
  * <p>
  * Pack data is stored in the {@code git_packs} table as BLOBs. Each pack
- * extension (PACK, IDX, REFTABLE, etc.) is stored as a separate row.
+ * extension (PACK, IDX, REFTABLE, etc.) is stored as a separate row, keyed
+ * by the pack base name and the extension name.
  */
 public class HibernateObjDatabase extends DfsObjDatabase {
 
@@ -46,7 +47,7 @@ public class HibernateObjDatabase extends DfsObjDatabase {
 
 	private final String repositoryName;
 
-	private final AtomicInteger packIdCounter = new AtomicInteger();
+	private static final AtomicInteger PACK_ID_COUNTER = new AtomicInteger();
 
 	private Set<ObjectId> shallowCommits = Collections.emptySet();
 
@@ -69,6 +70,23 @@ public class HibernateObjDatabase extends DfsObjDatabase {
 		this.repositoryName = repositoryName;
 	}
 
+	/**
+	 * Extract the base pack name from a DfsPackDescription.
+	 * <p>
+	 * DfsPackDescription stores the base name internally and
+	 * {@code getFileName(ext)} appends the extension. We recover the
+	 * base name by stripping the extension from any filename.
+	 *
+	 * @param desc
+	 *            the pack description
+	 * @return the base pack name without extension
+	 */
+	private static String baseName(DfsPackDescription desc) {
+		String fn = desc.getFileName(PackExt.PACK);
+		int dot = fn.lastIndexOf('.');
+		return dot > 0 ? fn.substring(0, dot) : fn;
+	}
+
 	@Override
 	protected List<DfsPackDescription> listPacks() throws IOException {
 		try (Session session = sessionFactory.openSession()) {
@@ -88,7 +106,7 @@ public class HibernateObjDatabase extends DfsObjDatabase {
 
 	@Override
 	protected DfsPackDescription newPack(PackSource source) {
-		int id = packIdCounter.incrementAndGet();
+		int id = PACK_ID_COUNTER.incrementAndGet();
 		String name = "pack-" + id + "-" + source.name(); //$NON-NLS-1$ //$NON-NLS-2$
 		return new DfsPackDescription(getRepository().getDescription(), name,
 				source);
@@ -104,8 +122,7 @@ public class HibernateObjDatabase extends DfsObjDatabase {
 					session.createMutationQuery(
 							"DELETE FROM GitPackEntity p WHERE p.repositoryName = :repo AND p.packName = :name") //$NON-NLS-1$
 							.setParameter("repo", repositoryName) //$NON-NLS-1$
-							.setParameter("name", //$NON-NLS-1$
-									d.getFileName(PackExt.PACK))
+							.setParameter("name", baseName(d)) //$NON-NLS-1$
 							.executeUpdate();
 				}
 			}
@@ -122,7 +139,7 @@ public class HibernateObjDatabase extends DfsObjDatabase {
 				session.createMutationQuery(
 						"DELETE FROM GitPackEntity p WHERE p.repositoryName = :repo AND p.packName = :name") //$NON-NLS-1$
 						.setParameter("repo", repositoryName) //$NON-NLS-1$
-						.setParameter("name", d.getFileName(PackExt.PACK)) //$NON-NLS-1$
+						.setParameter("name", baseName(d)) //$NON-NLS-1$
 						.executeUpdate();
 			}
 			session.getTransaction().commit();
@@ -139,7 +156,7 @@ public class HibernateObjDatabase extends DfsObjDatabase {
 					"FROM GitPackEntity p WHERE p.repositoryName = :repo AND p.packName = :name AND p.packExtension = :ext", //$NON-NLS-1$
 					GitPackEntity.class)
 					.setParameter("repo", repositoryName) //$NON-NLS-1$
-					.setParameter("name", desc.getFileName(ext)) //$NON-NLS-1$
+					.setParameter("name", baseName(desc)) //$NON-NLS-1$
 					.setParameter("ext", ext.getExtension()).uniqueResult(); //$NON-NLS-1$
 			if (entity == null) {
 				throw new FileNotFoundException(desc.getFileName(ext));
@@ -152,7 +169,7 @@ public class HibernateObjDatabase extends DfsObjDatabase {
 	protected DfsOutputStream writeFile(DfsPackDescription desc, PackExt ext)
 			throws IOException {
 		return new HibernatePackOutputStream(sessionFactory, repositoryName,
-				desc.getFileName(ext), ext.getExtension());
+				baseName(desc), ext.getExtension());
 	}
 
 	@Override
@@ -192,6 +209,8 @@ public class HibernateObjDatabase extends DfsObjDatabase {
 
 		private byte[] data;
 
+		private boolean flushed;
+
 		HibernatePackOutputStream(SessionFactory sessionFactory,
 				String repositoryName, String packName,
 				String packExtension) {
@@ -227,6 +246,10 @@ public class HibernateObjDatabase extends DfsObjDatabase {
 
 		@Override
 		public void flush() {
+			if (flushed) {
+				return;
+			}
+			flushed = true;
 			byte[] d = getData();
 			try (Session session = sessionFactory.openSession()) {
 				session.beginTransaction();

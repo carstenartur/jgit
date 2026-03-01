@@ -10,11 +10,13 @@
 package org.eclipse.jgit.storage.hibernate.service;
 
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.List;
 
 import org.eclipse.jgit.storage.hibernate.entity.GitCommitIndex;
 import org.eclipse.jgit.storage.hibernate.entity.GitObjectEntity;
 import org.eclipse.jgit.storage.hibernate.entity.GitRefEntity;
+import org.eclipse.jgit.storage.hibernate.entity.GitReflogEntity;
 import org.hibernate.Session;
 import org.hibernate.SessionFactory;
 
@@ -168,6 +170,129 @@ public class GitDatabaseQueryService {
 					GitCommitIndex.class).setParameter("repo", repoName) //$NON-NLS-1$
 					.setParameter("path", "%" + pathPattern + "%") //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
 					.getResultList();
+		}
+	}
+
+	/**
+	 * Get author statistics for a repository. Returns a list of
+	 * [authorName, authorEmail, commitCount] arrays.
+	 *
+	 * @param repoName
+	 *            the repository name
+	 * @return list of author statistics as Object arrays
+	 */
+	public List<AuthorStats> getAuthorStatistics(String repoName) {
+		try (Session session = sessionFactory.openSession()) {
+			List<Object[]> rows = session.createQuery(
+					"SELECT c.authorName, c.authorEmail, COUNT(c) FROM GitCommitIndex c WHERE c.repositoryName = :repo GROUP BY c.authorName, c.authorEmail ORDER BY COUNT(c) DESC", //$NON-NLS-1$
+					Object[].class).setParameter("repo", repoName) //$NON-NLS-1$
+					.getResultList();
+			List<AuthorStats> result = new ArrayList<>(rows.size());
+			for (Object[] row : rows) {
+				result.add(new AuthorStats((String) row[0], (String) row[1],
+						((Long) row[2]).longValue()));
+			}
+			return result;
+		}
+	}
+
+	/**
+	 * Get reflog entries for a specific ref.
+	 *
+	 * @param repoName
+	 *            the repository name
+	 * @param refName
+	 *            the reference name
+	 * @param max
+	 *            maximum number of entries to return
+	 * @return reflog entities in reverse chronological order
+	 */
+	public List<GitReflogEntity> getReflogEntries(String repoName,
+			String refName, int max) {
+		try (Session session = sessionFactory.openSession()) {
+			return session.createQuery(
+					"FROM GitReflogEntity r WHERE r.repositoryName = :repo AND r.refName = :ref ORDER BY r.id DESC", //$NON-NLS-1$
+					GitReflogEntity.class)
+					.setParameter("repo", repoName) //$NON-NLS-1$
+					.setParameter("ref", refName) //$NON-NLS-1$
+					.setMaxResults(max).getResultList();
+		}
+	}
+
+	/**
+	 * Delete reflog entries older than a given timestamp.
+	 *
+	 * @param repoName
+	 *            the repository name
+	 * @param before
+	 *            the cutoff timestamp
+	 * @return number of entries deleted
+	 */
+	public int purgeReflogEntries(String repoName, Instant before) {
+		try (Session session = sessionFactory.openSession()) {
+			session.beginTransaction();
+			int deleted = session.createMutationQuery(
+					"DELETE FROM GitReflogEntity r WHERE r.repositoryName = :repo AND r.when < :before") //$NON-NLS-1$
+					.setParameter("repo", repoName) //$NON-NLS-1$
+					.setParameter("before", before) //$NON-NLS-1$
+					.executeUpdate();
+			session.getTransaction().commit();
+			return deleted;
+		}
+	}
+
+	/**
+	 * Author statistics record.
+	 */
+	public static class AuthorStats {
+		private final String authorName;
+
+		private final String authorEmail;
+
+		private final long commitCount;
+
+		/**
+		 * Create author statistics.
+		 *
+		 * @param authorName
+		 *            the author name
+		 * @param authorEmail
+		 *            the author email
+		 * @param commitCount
+		 *            the number of commits
+		 */
+		public AuthorStats(String authorName, String authorEmail,
+				long commitCount) {
+			this.authorName = authorName;
+			this.authorEmail = authorEmail;
+			this.commitCount = commitCount;
+		}
+
+		/**
+		 * Get the author name.
+		 *
+		 * @return the authorName
+		 */
+		public String getAuthorName() {
+			return authorName;
+		}
+
+		/**
+		 * Get the author email.
+		 *
+		 * @return the authorEmail
+		 */
+		public String getAuthorEmail() {
+			return authorEmail;
+		}
+
+		/**
+		 * Get the commit count.
+		 *
+		 * @return the commitCount
+		 */
+		public long getCommitCount() {
+			return commitCount;
 		}
 	}
 }

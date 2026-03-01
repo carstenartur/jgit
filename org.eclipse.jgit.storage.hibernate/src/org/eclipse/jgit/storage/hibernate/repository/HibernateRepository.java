@@ -9,13 +9,18 @@
  */
 package org.eclipse.jgit.storage.hibernate.repository;
 
+import java.io.IOException;
+
 import org.eclipse.jgit.annotations.Nullable;
 import org.eclipse.jgit.internal.storage.dfs.DfsReaderOptions;
 import org.eclipse.jgit.internal.storage.dfs.DfsRepository;
 import org.eclipse.jgit.internal.storage.dfs.DfsRepositoryDescription;
 import org.eclipse.jgit.lib.RefDatabase;
+import org.eclipse.jgit.lib.ReflogReader;
 import org.eclipse.jgit.storage.hibernate.objects.HibernateObjDatabase;
 import org.eclipse.jgit.storage.hibernate.refs.HibernateRefDatabase;
+import org.eclipse.jgit.storage.hibernate.refs.HibernateReflogReader;
+import org.eclipse.jgit.storage.hibernate.refs.HibernateReflogWriter;
 import org.hibernate.SessionFactory;
 
 /**
@@ -34,6 +39,8 @@ public class HibernateRepository extends DfsRepository {
 	private final HibernateObjDatabase objdb;
 
 	private final HibernateRefDatabase refdb;
+
+	private final HibernateReflogWriter reflogWriter;
 
 	private final SessionFactory sessionFactory;
 
@@ -61,6 +68,8 @@ public class HibernateRepository extends DfsRepository {
 		this.objdb = new HibernateObjDatabase(this, new DfsReaderOptions(),
 				sessionFactory, repositoryName);
 		this.refdb = new HibernateRefDatabase(this);
+		this.reflogWriter = new HibernateReflogWriter(sessionFactory,
+				repositoryName);
 	}
 
 	@Override
@@ -89,6 +98,21 @@ public class HibernateRepository extends DfsRepository {
 	 */
 	public SessionFactory getSessionFactory() {
 		return sessionFactory;
+	}
+
+	/**
+	 * Get the reflog writer for persisting reflog entries to the database.
+	 *
+	 * @return the reflog writer
+	 */
+	public HibernateReflogWriter getReflogWriter() {
+		return reflogWriter;
+	}
+
+	@Override
+	public ReflogReader getReflogReader(String refName) throws IOException {
+		return new HibernateReflogReader(sessionFactory, repositoryName,
+				refName);
 	}
 
 	@Override
