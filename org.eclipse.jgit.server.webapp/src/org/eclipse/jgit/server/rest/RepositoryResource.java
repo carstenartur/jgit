@@ -83,7 +83,10 @@ public class RepositoryResource extends HttpServlet {
 			if (name == null || name.trim().isEmpty()) {
 				resp.setStatus(HttpServletResponse.SC_BAD_REQUEST);
 				try (PrintWriter w = resp.getWriter()) {
-					w.write("{\"error\":\"Repository name is required\"}"); //$NON-NLS-1$
+					JsonObject error = new JsonObject();
+					error.addProperty("error", //$NON-NLS-1$
+							"Repository name is required"); //$NON-NLS-1$
+					w.write(gson.toJson(error));
 				}
 				return;
 			}
@@ -109,8 +112,10 @@ public class RepositoryResource extends HttpServlet {
 			LOG.log(Level.WARNING, "Error creating repository", e); //$NON-NLS-1$
 			resp.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
 			try (PrintWriter w = resp.getWriter()) {
-				w.write("{\"error\":\"" + escapeJson(e.getMessage()) //$NON-NLS-1$
-						+ "\"}"); //$NON-NLS-1$
+				JsonObject error = new JsonObject();
+				error.addProperty("error", //$NON-NLS-1$
+						e.getMessage());
+				w.write(gson.toJson(error));
 			}
 		}
 	}
@@ -125,7 +130,10 @@ public class RepositoryResource extends HttpServlet {
 		if (pathInfo == null || pathInfo.equals("/")) { //$NON-NLS-1$
 			resp.setStatus(HttpServletResponse.SC_OK);
 			try (PrintWriter w = resp.getWriter()) {
-				w.write("{\"message\":\"Use POST to create repos or GET /repos/{name} for info\"}"); //$NON-NLS-1$
+				JsonObject msg = new JsonObject();
+				msg.addProperty("message", //$NON-NLS-1$
+						"Use POST to create repos or GET /repos/{name} for info"); //$NON-NLS-1$
+				w.write(gson.toJson(msg));
 			}
 			return;
 		}
@@ -149,19 +157,12 @@ public class RepositoryResource extends HttpServlet {
 					+ repoName, e);
 			resp.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
 			try (PrintWriter w = resp.getWriter()) {
-				w.write("{\"error\":\"" + escapeJson(e.getMessage()) //$NON-NLS-1$
-						+ "\"}"); //$NON-NLS-1$
+				JsonObject error = new JsonObject();
+				error.addProperty("error", //$NON-NLS-1$
+						e.getMessage());
+				w.write(gson.toJson(error));
 			}
 		}
 	}
 
-	private static String escapeJson(String input) {
-		if (input == null) {
-			return "null"; //$NON-NLS-1$
-		}
-		return input.replace("\\", "\\\\") //$NON-NLS-1$ //$NON-NLS-2$
-				.replace("\"", "\\\"") //$NON-NLS-1$ //$NON-NLS-2$
-				.replace("\n", "\\n") //$NON-NLS-1$ //$NON-NLS-2$
-				.replace("\r", "\\r"); //$NON-NLS-1$ //$NON-NLS-2$
-	}
 }
