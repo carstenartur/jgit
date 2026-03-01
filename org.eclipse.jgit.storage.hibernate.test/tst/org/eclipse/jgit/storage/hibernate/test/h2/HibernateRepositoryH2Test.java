@@ -207,6 +207,27 @@ public class HibernateRepositoryH2Test {
 	}
 
 	@Test
+	public void testTwoPacksReadBack() throws Exception {
+		ObjectId blob1;
+		try (ObjectInserter inserter = repo.newObjectInserter()) {
+			blob1 = inserter.insert(Constants.OBJ_BLOB,
+					"pack1 content".getBytes(StandardCharsets.UTF_8));
+			inserter.flush();
+		}
+		assertTrue(repo.getObjectDatabase().has(blob1));
+
+		ObjectId blob2;
+		try (ObjectInserter inserter = repo.newObjectInserter()) {
+			blob2 = inserter.insert(Constants.OBJ_BLOB,
+					"pack2 content".getBytes(StandardCharsets.UTF_8));
+			inserter.flush();
+		}
+		assertTrue(repo.getObjectDatabase().has(blob2));
+		assertTrue("blob1 should still exist after second pack",
+				repo.getObjectDatabase().has(blob1));
+	}
+
+	@Test
 	public void testMultipleBlobs() throws Exception {
 		ObjectId id1, id2, id3;
 		try (ObjectInserter inserter = repo.newObjectInserter()) {

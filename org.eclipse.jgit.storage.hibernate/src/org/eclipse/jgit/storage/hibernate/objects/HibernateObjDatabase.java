@@ -17,6 +17,7 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -90,17 +91,27 @@ public class HibernateObjDatabase extends DfsObjDatabase {
 	@Override
 	protected List<DfsPackDescription> listPacks() throws IOException {
 		try (Session session = sessionFactory.openSession()) {
-			List<String> packNames = session.createQuery(
-					"SELECT DISTINCT p.packName FROM GitPackEntity p WHERE p.repositoryName = :repo", //$NON-NLS-1$
-					String.class).setParameter("repo", repositoryName) //$NON-NLS-1$
+			List<Object[]> rows = session.createQuery(
+					"SELECT p.packName, p.packExtension FROM GitPackEntity p WHERE p.repositoryName = :repo", //$NON-NLS-1$
+					Object[].class)
+					.setParameter("repo", repositoryName) //$NON-NLS-1$
 					.getResultList();
-			List<DfsPackDescription> result = new ArrayList<>();
-			for (String packName : packNames) {
-				result.add(new DfsPackDescription(
-						getRepository().getDescription(), packName,
-						PackSource.INSERT));
+			LinkedHashMap<String, DfsPackDescription> descMap = new LinkedHashMap<>();
+			for (Object[] row : rows) {
+				String name = (String) row[0];
+				String ext = (String) row[1];
+				DfsPackDescription desc = descMap.computeIfAbsent(name,
+						n -> new DfsPackDescription(
+								getRepository().getDescription(), n,
+								PackSource.INSERT));
+				for (PackExt pe : PackExt.values()) {
+					if (pe.getExtension().equals(ext)) {
+						desc.addFileExt(pe);
+						break;
+					}
+				}
 			}
-			return result;
+			return new ArrayList<>(descMap.values());
 		}
 	}
 
