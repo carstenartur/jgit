@@ -242,6 +242,65 @@ public class GitDatabaseQueryService {
 	}
 
 	/**
+	 * Find pack names that are not referenced by any current pack description.
+	 * <p>
+	 * This can identify orphaned pack data left after failed operations.
+	 *
+	 * @param repoName
+	 *            the repository name
+	 * @return list of orphaned pack names
+	 */
+	public List<String> findOrphanedPacks(String repoName) {
+		try (Session session = sessionFactory.openSession()) {
+			return session.createQuery(
+					"SELECT DISTINCT p.packName FROM GitPackEntity p " //$NON-NLS-1$
+							+ "WHERE p.repositoryName = :repo " //$NON-NLS-1$
+							+ "AND NOT EXISTS (" //$NON-NLS-1$
+							+ "SELECT 1 FROM GitPackEntity p2 " //$NON-NLS-1$
+							+ "WHERE p2.repositoryName = :repo " //$NON-NLS-1$
+							+ "AND p2.packName = p.packName " //$NON-NLS-1$
+							+ "AND p2.packExtension = 'pack')", //$NON-NLS-1$
+					String.class)
+					.setParameter("repo", repoName) //$NON-NLS-1$
+					.getResultList();
+		}
+	}
+
+	/**
+	 * Get the total count of pack files in a repository.
+	 *
+	 * @param repoName
+	 *            the repository name
+	 * @return the number of distinct pack files
+	 */
+	public long countPacks(String repoName) {
+		try (Session session = sessionFactory.openSession()) {
+			Long count = session.createQuery(
+					"SELECT COUNT(DISTINCT p.packName) FROM GitPackEntity p WHERE p.repositoryName = :repo", //$NON-NLS-1$
+					Long.class).setParameter("repo", repoName) //$NON-NLS-1$
+					.uniqueResult();
+			return count != null ? count : 0;
+		}
+	}
+
+	/**
+	 * Get the total storage size (in bytes) of all packs in a repository.
+	 *
+	 * @param repoName
+	 *            the repository name
+	 * @return the total pack data size in bytes
+	 */
+	public long getTotalPackSize(String repoName) {
+		try (Session session = sessionFactory.openSession()) {
+			Long size = session.createQuery(
+					"SELECT COALESCE(SUM(p.fileSize), 0) FROM GitPackEntity p WHERE p.repositoryName = :repo", //$NON-NLS-1$
+					Long.class).setParameter("repo", repoName) //$NON-NLS-1$
+					.uniqueResult();
+			return size != null ? size : 0;
+		}
+	}
+
+	/**
 	 * Author statistics record.
 	 */
 	public static class AuthorStats {

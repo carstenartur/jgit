@@ -553,6 +553,25 @@ public abstract class AbstractHibernateRepositoryTest {
 		assertEquals(0, entries.size());
 	}
 
+	@Test
+	public void testPackCountAndSize() throws Exception {
+		GitDatabaseQueryService qs = new GitDatabaseQueryService(
+				provider.getSessionFactory());
+
+		long initialPacks = qs.countPacks(testRepoName);
+		long initialSize = qs.getTotalPackSize(testRepoName);
+
+		// Insert a blob to create a new pack
+		try (ObjectInserter inserter = repo.newObjectInserter()) {
+			inserter.insert(Constants.OBJ_BLOB,
+					"pack stats test".getBytes(StandardCharsets.UTF_8)); //$NON-NLS-1$
+			inserter.flush();
+		}
+
+		assertTrue(qs.countPacks(testRepoName) > initialPacks);
+		assertTrue(qs.getTotalPackSize(testRepoName) > initialSize);
+	}
+
 	// ===== Helpers =====
 
 	/**
