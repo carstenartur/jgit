@@ -13,6 +13,7 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
 
+import java.nio.charset.StandardCharsets;
 import java.util.Properties;
 
 import org.eclipse.jgit.internal.storage.dfs.DfsRepositoryDescription;
@@ -83,7 +84,7 @@ public class HibernateRepositoryH2Test {
 
 	@Test
 	public void testInsertBlob() throws Exception {
-		byte[] content = "Hello, JGit Hibernate!".getBytes(Constants.CHARSET);
+		byte[] content = "Hello, JGit Hibernate!".getBytes(StandardCharsets.UTF_8);
 		ObjectId blobId;
 		try (ObjectInserter inserter = repo.newObjectInserter()) {
 			blobId = inserter.insert(Constants.OBJ_BLOB, content);
