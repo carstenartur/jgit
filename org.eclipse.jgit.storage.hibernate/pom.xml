@@ -1,0 +1,77 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Copyright (C) 2026, Carsten Hammer and others
+
+  This program and the accompanying materials are made available under the
+  terms of the Eclipse Distribution License v. 1.0 which is available at
+  http://www.eclipse.org/org/documents/edl-v10.php.
+
+  SPDX-License-Identifier: BSD-3-Clause
+-->
+
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <parent>
+    <groupId>org.eclipse.jgit</groupId>
+    <artifactId>org.eclipse.jgit-parent</artifactId>
+    <version>7.6.0-SNAPSHOT</version>
+  </parent>
+
+  <artifactId>org.eclipse.jgit.storage.hibernate</artifactId>
+  <name>JGit - Hibernate Storage</name>
+
+  <description>
+    Database-backed storage layer for JGit using Hibernate ORM.
+  </description>
+
+  <properties>
+    <hibernate-version>6.6.13.Final</hibernate-version>
+    <translate-qualifier/>
+    <source-bundle-manifest>${project.build.directory}/META-INF/SOURCE-MANIFEST.MF</source-bundle-manifest>
+  </properties>
+
+  <dependencies>
+    <dependency>
+      <groupId>org.eclipse.jgit</groupId>
+      <artifactId>org.eclipse.jgit</artifactId>
+      <version>${project.version}</version>
+    </dependency>
+
+    <dependency>
+      <groupId>org.hibernate.orm</groupId>
+      <artifactId>hibernate-core</artifactId>
+      <version>${hibernate-version}</version>
+    </dependency>
+  </dependencies>
+
+  <build>
+    <sourceDirectory>src/</sourceDirectory>
+
+    <resources>
+      <resource>
+        <directory>.</directory>
+        <includes>
+          <include>plugin.properties</include>
+          <include>about.html</include>
+        </includes>
+      </resource>
+      <resource>
+        <directory>resources/</directory>
+      </resource>
+    </resources>
+
+    <plugins>
+      <plugin>
+        <artifactId>maven-jar-plugin</artifactId>
+        <configuration>
+          <archive>
+            <manifestFile>${bundle-manifest}</manifestFile>
+          </archive>
+        </configuration>
+      </plugin>
+    </plugins>
+  </build>
+</project>
