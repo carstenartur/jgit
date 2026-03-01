@@ -190,7 +190,7 @@ public class GitDatabaseQueryService {
 			List<AuthorStats> result = new ArrayList<>(rows.size());
 			for (Object[] row : rows) {
 				result.add(new AuthorStats((String) row[0], (String) row[1],
-						((Long) row[2]).longValue()));
+						(Long) row[2]));
 			}
 			return result;
 		}

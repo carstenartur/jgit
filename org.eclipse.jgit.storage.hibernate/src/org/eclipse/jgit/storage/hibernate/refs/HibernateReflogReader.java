@@ -111,7 +111,7 @@ public class HibernateReflogReader implements ReflogReader {
 					entity.getWhoName() != null ? entity.getWhoName() : "", //$NON-NLS-1$
 					entity.getWhoEmail() != null ? entity.getWhoEmail() : "", //$NON-NLS-1$
 					entity.getWhen(),
-					java.time.ZoneId.of("UTC")); //$NON-NLS-1$
+					java.time.ZoneOffset.UTC); //$NON-NLS-1$
 			this.comment = entity.getMessage() != null ? entity.getMessage()
 					: ""; //$NON-NLS-1$
 		}
