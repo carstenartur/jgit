@@ -47,6 +47,11 @@ public class HibernateSessionFactoryProvider {
 			cfg.setProperty("hibernate.search.backend.directory.type", //$NON-NLS-1$
 					"local-heap"); //$NON-NLS-1$
 		}
+		if (!properties
+				.containsKey("hibernate.search.backend.analysis.configurer")) { //$NON-NLS-1$
+			cfg.setProperty("hibernate.search.backend.analysis.configurer", //$NON-NLS-1$
+					"class:org.eclipse.jgit.storage.hibernate.search.JavaSourceAnalysisConfigurer"); //$NON-NLS-1$
+		}
 		cfg.addAnnotatedClass(GitObjectEntity.class);
 		cfg.addAnnotatedClass(GitRefEntity.class);
 		cfg.addAnnotatedClass(GitPackEntity.class);
