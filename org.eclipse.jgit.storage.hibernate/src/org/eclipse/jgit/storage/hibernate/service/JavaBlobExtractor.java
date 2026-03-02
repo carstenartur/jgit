@@ -11,6 +11,8 @@ package org.eclipse.jgit.storage.hibernate.service;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 import org.eclipse.jdt.core.dom.AST;
 import org.eclipse.jdt.core.dom.ASTParser;
@@ -30,6 +32,9 @@ import org.eclipse.jgit.storage.hibernate.search.JavaStructureVisitor;
  * </p>
  */
 public class JavaBlobExtractor {
+
+	private static final Logger LOG = Logger
+			.getLogger(JavaBlobExtractor.class.getName());
 
 	private static final int MAX_SNIPPET_LENGTH = 65535;
 
@@ -93,6 +98,9 @@ public class JavaBlobExtractor {
 			idx.setImplementsTypes(visitor.getInterfaces());
 		} catch (Exception e) {
 			// Graceful degradation: return partial results on parse errors
+			LOG.log(Level.WARNING,
+					"Failed to parse Java source: {0}: {1}", //$NON-NLS-1$
+					new Object[] { filePath, e.getMessage() });
 		}
 
 		return idx;

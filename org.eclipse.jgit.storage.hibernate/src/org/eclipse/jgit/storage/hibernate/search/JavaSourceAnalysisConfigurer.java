@@ -73,5 +73,14 @@ public class JavaSourceAnalysisConfigurer implements LuceneAnalysisConfigurer {
 						return new TokenStreamComponents(tokenizer, filter);
 					}
 				});
+
+		// Generic analyzer for non-Java text content
+		context.analyzer("genericContent").custom() //$NON-NLS-1$
+				.tokenizer("standard") //$NON-NLS-1$
+				.tokenFilter("wordDelimiterGraph") //$NON-NLS-1$
+				.param("splitOnCaseChange", "1") //$NON-NLS-1$ //$NON-NLS-2$
+				.param("preserveOriginal", "1") //$NON-NLS-1$ //$NON-NLS-2$
+				.tokenFilter("lowercase") //$NON-NLS-1$
+				.tokenFilter("stop"); //$NON-NLS-1$
 	}
 }

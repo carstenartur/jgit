@@ -64,6 +64,24 @@ public class GitDatabaseQueryService {
 	 */
 	public List<GitCommitIndex> searchCommitMessages(String repoName,
 			String query) {
+		return searchCommitMessages(repoName, query, 0, 20);
+	}
+
+	/**
+	 * Search commit messages with pagination.
+	 *
+	 * @param repoName
+	 *            the repository name
+	 * @param query
+	 *            the search query
+	 * @param offset
+	 *            the result offset
+	 * @param limit
+	 *            the maximum number of results
+	 * @return matching commit index entries
+	 */
+	public List<GitCommitIndex> searchCommitMessages(String repoName,
+			String query, int offset, int limit) {
 		try (Session session = sessionFactory.openSession()) {
 			SearchSession searchSession = Search.session(session);
 			return searchSession.search(GitCommitIndex.class)
@@ -72,7 +90,7 @@ public class GitDatabaseQueryService {
 									.matching(repoName))
 							.must(f.match().field("commitMessage") //$NON-NLS-1$
 									.matching(query)))
-					.fetchAllHits();
+					.fetch(offset, limit).hits();
 		}
 	}
 
@@ -179,6 +197,24 @@ public class GitDatabaseQueryService {
 	 */
 	public List<GitCommitIndex> searchByChangedPath(String repoName,
 			String pathPattern) {
+		return searchByChangedPath(repoName, pathPattern, 0, 20);
+	}
+
+	/**
+	 * Search commits by changed path with pagination.
+	 *
+	 * @param repoName
+	 *            the repository name
+	 * @param pathPattern
+	 *            the path pattern to search for
+	 * @param offset
+	 *            the result offset
+	 * @param limit
+	 *            the maximum number of results
+	 * @return matching commit index entries
+	 */
+	public List<GitCommitIndex> searchByChangedPath(String repoName,
+			String pathPattern, int offset, int limit) {
 		try (Session session = sessionFactory.openSession()) {
 			SearchSession searchSession = Search.session(session);
 			return searchSession.search(GitCommitIndex.class)
@@ -187,7 +223,7 @@ public class GitDatabaseQueryService {
 									.matching(repoName))
 							.must(f.match().field("changedPaths") //$NON-NLS-1$
 									.matching(pathPattern)))
-					.fetchAllHits();
+					.fetch(offset, limit).hits();
 		}
 	}
 
@@ -388,6 +424,24 @@ public class GitDatabaseQueryService {
 	 * @return matching Java blob index entries
 	 */
 	public List<JavaBlobIndex> searchByType(String repoName, String query) {
+		return searchByType(repoName, query, 0, 20);
+	}
+
+	/**
+	 * Search Java blob indices by type name with pagination and boosting.
+	 *
+	 * @param repoName
+	 *            the repository name
+	 * @param query
+	 *            the type name query
+	 * @param offset
+	 *            the result offset
+	 * @param limit
+	 *            the maximum number of results
+	 * @return matching Java blob index entries
+	 */
+	public List<JavaBlobIndex> searchByType(String repoName, String query,
+			int offset, int limit) {
 		try (Session session = sessionFactory.openSession()) {
 			SearchSession searchSession = Search.session(session);
 			return searchSession.search(JavaBlobIndex.class)
@@ -396,9 +450,11 @@ public class GitDatabaseQueryService {
 									.matching(repoName))
 							.must(f.match()
 									.field("fullyQualifiedNames") //$NON-NLS-1$
+									.boost(2.0f)
 									.field("declaredTypes") //$NON-NLS-1$
+									.boost(1.5f)
 									.matching(query)))
-					.fetchAllHits();
+					.fetch(offset, limit).hits();
 		}
 	}
 
@@ -412,6 +468,24 @@ public class GitDatabaseQueryService {
 	 * @return matching Java blob index entries
 	 */
 	public List<JavaBlobIndex> searchBySymbol(String repoName, String query) {
+		return searchBySymbol(repoName, query, 0, 20);
+	}
+
+	/**
+	 * Search Java blob indices by symbol name with pagination and boosting.
+	 *
+	 * @param repoName
+	 *            the repository name
+	 * @param query
+	 *            the symbol name query
+	 * @param offset
+	 *            the result offset
+	 * @param limit
+	 *            the maximum number of results
+	 * @return matching Java blob index entries
+	 */
+	public List<JavaBlobIndex> searchBySymbol(String repoName, String query,
+			int offset, int limit) {
 		try (Session session = sessionFactory.openSession()) {
 			SearchSession searchSession = Search.session(session);
 			return searchSession.search(JavaBlobIndex.class)
@@ -420,9 +494,10 @@ public class GitDatabaseQueryService {
 									.matching(repoName))
 							.must(f.match()
 									.field("declaredMethods") //$NON-NLS-1$
+									.boost(1.5f)
 									.field("declaredFields") //$NON-NLS-1$
 									.matching(query)))
-					.fetchAllHits();
+					.fetch(offset, limit).hits();
 		}
 	}
 
@@ -437,6 +512,24 @@ public class GitDatabaseQueryService {
 	 */
 	public List<JavaBlobIndex> searchByHierarchy(String repoName,
 			String typeName) {
+		return searchByHierarchy(repoName, typeName, 0, 20);
+	}
+
+	/**
+	 * Search Java blob indices by type hierarchy with pagination.
+	 *
+	 * @param repoName
+	 *            the repository name
+	 * @param typeName
+	 *            the type name to find subtypes of
+	 * @param offset
+	 *            the result offset
+	 * @param limit
+	 *            the maximum number of results
+	 * @return matching Java blob index entries
+	 */
+	public List<JavaBlobIndex> searchByHierarchy(String repoName,
+			String typeName, int offset, int limit) {
 		try (Session session = sessionFactory.openSession()) {
 			SearchSession searchSession = Search.session(session);
 			return searchSession.search(JavaBlobIndex.class)
@@ -447,7 +540,7 @@ public class GitDatabaseQueryService {
 									.field("extendsTypes") //$NON-NLS-1$
 									.field("implementsTypes") //$NON-NLS-1$
 									.matching(typeName)))
-					.fetchAllHits();
+					.fetch(offset, limit).hits();
 		}
 	}
 
@@ -462,6 +555,24 @@ public class GitDatabaseQueryService {
 	 */
 	public List<JavaBlobIndex> searchSourceContent(String repoName,
 			String query) {
+		return searchSourceContent(repoName, query, 0, 20);
+	}
+
+	/**
+	 * Full-text search across Java source snippets with pagination.
+	 *
+	 * @param repoName
+	 *            the repository name
+	 * @param query
+	 *            the search query
+	 * @param offset
+	 *            the result offset
+	 * @param limit
+	 *            the maximum number of results
+	 * @return matching Java blob index entries
+	 */
+	public List<JavaBlobIndex> searchSourceContent(String repoName,
+			String query, int offset, int limit) {
 		try (Session session = sessionFactory.openSession()) {
 			SearchSession searchSession = Search.session(session);
 			return searchSession.search(JavaBlobIndex.class)
@@ -470,7 +581,7 @@ public class GitDatabaseQueryService {
 									.matching(repoName))
 							.must(f.match().field("sourceSnippet") //$NON-NLS-1$
 									.matching(query)))
-					.fetchAllHits();
+					.fetch(offset, limit).hits();
 		}
 	}
 
