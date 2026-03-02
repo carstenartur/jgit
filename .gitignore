@@ -1,5 +1,6 @@
 /.project
 /org.eclipse.jgit.benchmarks/dependency-reduced-pom.xml
+/org.eclipse.jgit.server.webapp/dependency-reduced-pom.xml
 /tools/maven-central/out/
 /tools/maven-central/staging-deploy/
 /tools/maven-central/jreleaser.yml

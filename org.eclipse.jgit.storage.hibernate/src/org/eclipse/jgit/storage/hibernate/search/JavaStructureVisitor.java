@@ -19,6 +19,8 @@ import org.eclipse.jdt.core.dom.EnumConstantDeclaration;
 import org.eclipse.jdt.core.dom.EnumDeclaration;
 import org.eclipse.jdt.core.dom.FieldDeclaration;
 import org.eclipse.jdt.core.dom.MethodDeclaration;
+import org.eclipse.jdt.core.dom.ParameterizedType;
+import org.eclipse.jdt.core.dom.SimpleType;
 import org.eclipse.jdt.core.dom.Type;
 import org.eclipse.jdt.core.dom.TypeDeclaration;
 import org.eclipse.jdt.core.dom.VariableDeclarationFragment;
@@ -188,7 +190,15 @@ public class JavaStructureVisitor extends ASTVisitor {
 	}
 
 	private String resolveTypeName(Type type) {
-		String simpleName = type.toString();
+		String simpleName;
+		if (type instanceof SimpleType simpleType) {
+			simpleName = simpleType.getName().getFullyQualifiedName();
+		} else if (type instanceof ParameterizedType paramType) {
+			// For List<String>, extract just "List"
+			return resolveTypeName(paramType.getType());
+		} else {
+			simpleName = type.toString();
+		}
 		if (importMap.containsKey(simpleName)) {
 			return importMap.get(simpleName);
 		}
