@@ -350,7 +350,9 @@ public class JGitServerApplication {
 						r.receive();
 					} catch (Exception e) {
 						LOG.log(Level.SEVERE,
-								"ReceivePack error", e); //$NON-NLS-1$
+								"ReceivePack error for " //$NON-NLS-1$
+										+ req.getRequestURI(),
+								e);
 						throw e;
 					}
 				});
