@@ -14,6 +14,7 @@ import java.io.IOException;
 import org.apache.lucene.analysis.TokenFilter;
 import org.apache.lucene.analysis.TokenStream;
 import org.apache.lucene.analysis.tokenattributes.CharTermAttribute;
+import org.apache.lucene.analysis.tokenattributes.OffsetAttribute;
 import org.apache.lucene.analysis.tokenattributes.PositionIncrementAttribute;
 import org.apache.lucene.analysis.tokenattributes.TypeAttribute;
 
@@ -38,6 +39,9 @@ public final class EcjTokenFilter extends TokenFilter {
 	private final PositionIncrementAttribute posIncAttr = addAttribute(
 			PositionIncrementAttribute.class);
 
+	private final OffsetAttribute offsetAttr = addAttribute(
+			OffsetAttribute.class);
+
 	private final boolean indexComments;
 
 	private String[] pendingParts;
@@ -45,6 +49,10 @@ public final class EcjTokenFilter extends TokenFilter {
 	private int pendingIndex;
 
 	private String savedType;
+
+	private int savedStartOffset;
+
+	private int savedEndOffset;
 
 	/**
 	 * Create a new ECJ token filter that skips comments.
@@ -77,6 +85,7 @@ public final class EcjTokenFilter extends TokenFilter {
 			termAttr.setEmpty().append(pendingParts[pendingIndex]);
 			typeAttr.setType(savedType);
 			posIncAttr.setPositionIncrement(0);
+			offsetAttr.setOffset(savedStartOffset, savedEndOffset);
 			pendingIndex++;
 			if (pendingIndex >= pendingParts.length) {
 				pendingParts = null;
@@ -111,6 +120,8 @@ public final class EcjTokenFilter extends TokenFilter {
 					// The original term is already emitted
 					// Queue sub-parts at position increment 0
 					savedType = type;
+					savedStartOffset = offsetAttr.startOffset();
+					savedEndOffset = offsetAttr.endOffset();
 					pendingParts = parts;
 					pendingIndex = 0;
 				}
@@ -130,7 +141,14 @@ public final class EcjTokenFilter extends TokenFilter {
 		pendingIndex = 0;
 	}
 
-	static String[] splitCamelCase(String identifier) {
+	/**
+	 * Split a CamelCase identifier into its parts.
+	 *
+	 * @param identifier
+	 *            the identifier to split
+	 * @return an array of parts
+	 */
+	public static String[] splitCamelCase(String identifier) {
 		if (identifier == null || identifier.isEmpty()) {
 			return new String[0];
 		}
