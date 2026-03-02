@@ -170,27 +170,9 @@
         <artifactId>maven-surefire-plugin</artifactId>
         <configuration>
           <argLine>@{argLine} -Djava.io.tmpdir=${project.build.directory} -Xmx512m</argLine>
-          <!-- Exclude Testcontainer-based tests by default (require Docker) -->
-          <excludedGroups>org.eclipse.jgit.storage.hibernate.test.category.DatabaseTest</excludedGroups>
         </configuration>
       </plugin>
     </plugins>
   </build>
 
-  <profiles>
-    <!-- Activate with -Pdb-tests to include Testcontainer-based database tests -->
-    <profile>
-      <id>db-tests</id>
-      <build>
-        <plugins>
-          <plugin>
-            <artifactId>maven-surefire-plugin</artifactId>
-            <configuration>
-              <excludedGroups/>
-            </configuration>
-          </plugin>
-        </plugins>
-      </build>
-    </profile>
-  </profiles>
 </project>

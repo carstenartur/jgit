@@ -530,6 +530,76 @@ public abstract class AbstractHibernateRepositoryTest {
 	// ===== GC tests =====
 
 	@Test
+	public void testSearchVariableInSpecificVersion() throws Exception {
+		// V1: Java file with "mySpecialVar"
+		String v1Content = "public class Main {\n" //$NON-NLS-1$
+				+ "  int mySpecialVar = 42;\n" //$NON-NLS-1$
+				+ "}\n"; //$NON-NLS-1$
+		ObjectId commitV1 = createCommitWithFile(
+				"Add Main.java with mySpecialVar", //$NON-NLS-1$
+				"src/Main.java", v1Content); //$NON-NLS-1$
+
+		// V2: Variable renamed
+		String v2Content = "public class Main {\n" //$NON-NLS-1$
+				+ "  int myRenamedVar = 42;\n" //$NON-NLS-1$
+				+ "}\n"; //$NON-NLS-1$
+		ObjectId commitV2 = createCommitWithFile(
+				"Rename variable in Main.java", //$NON-NLS-1$
+				"src/Main.java", v2Content); //$NON-NLS-1$
+
+		// Index both commits
+		CommitIndexer indexer = new CommitIndexer(
+				provider.getSessionFactory(), testRepoName);
+		indexer.indexCommit(repo, commitV1);
+		indexer.indexCommit(repo, commitV2);
+
+		// Verify: TreeWalk can read blob content from DB-backed repo (V1)
+		try (RevWalk rw = new RevWalk(repo)) {
+			RevCommit c1 = rw.parseCommit(commitV1);
+			try (org.eclipse.jgit.treewalk.TreeWalk tw = org.eclipse.jgit.treewalk.TreeWalk
+					.forPath(repo.newObjectReader(), "src/Main.java", //$NON-NLS-1$
+							c1.getTree())) {
+				assertNotNull(tw);
+				org.eclipse.jgit.lib.ObjectLoader loader = repo
+						.newObjectReader().open(tw.getObjectId(0));
+				String content = new String(loader.getBytes(),
+						StandardCharsets.UTF_8);
+				assertTrue(content.contains("mySpecialVar")); //$NON-NLS-1$
+				assertFalse(content.contains("myRenamedVar")); //$NON-NLS-1$
+			}
+		}
+
+		// Verify: V2 has the renamed variable
+		try (RevWalk rw = new RevWalk(repo)) {
+			RevCommit c2 = rw.parseCommit(commitV2);
+			try (org.eclipse.jgit.treewalk.TreeWalk tw = org.eclipse.jgit.treewalk.TreeWalk
+					.forPath(repo.newObjectReader(), "src/Main.java", //$NON-NLS-1$
+							c2.getTree())) {
+				assertNotNull(tw);
+				org.eclipse.jgit.lib.ObjectLoader loader = repo
+						.newObjectReader().open(tw.getObjectId(0));
+				String content = new String(loader.getBytes(),
+						StandardCharsets.UTF_8);
+				assertFalse(content.contains("mySpecialVar")); //$NON-NLS-1$
+				assertTrue(content.contains("myRenamedVar")); //$NON-NLS-1$
+			}
+		}
+
+		// Verify: path search finds both commits
+		GitDatabaseQueryService qs = new GitDatabaseQueryService(
+				provider.getSessionFactory());
+		List<GitCommitIndex> pathResults = qs.searchByChangedPath(
+				testRepoName, "src/Main.java"); //$NON-NLS-1$
+		assertEquals(2, pathResults.size());
+
+		// Verify: commit message search distinguishes the two
+		List<GitCommitIndex> v1Results = qs.searchCommitMessages(
+				testRepoName, "mySpecialVar"); //$NON-NLS-1$
+		assertEquals(1, v1Results.size());
+		assertEquals(commitV1.name(), v1Results.get(0).getObjectId());
+	}
+
+	@Test
 	public void testGarbageCollectionPurgeReflog() throws Exception {
 		// Phase 4: GC can purge old reflog entries
 		HibernateReflogWriter writer = repo.getReflogWriter();
