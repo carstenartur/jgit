@@ -13,6 +13,7 @@ import java.io.IOException;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
+import org.eclipse.jgit.internal.storage.dfs.DfsRepositoryDescription;
 import org.eclipse.jgit.lib.Repository;
 import org.eclipse.jgit.storage.hibernate.config.HibernateSessionFactoryProvider;
 import org.eclipse.jgit.storage.hibernate.repository.HibernateRepository;
@@ -72,7 +73,10 @@ public class HibernateRepositoryResolver
 			try {
 				return new HibernateRepositoryBuilder()
 						.setSessionFactoryProvider(sessionFactoryProvider)
-						.setRepositoryName(n).build();
+						.setRepositoryName(n)
+						.setRepositoryDescription(
+								new DfsRepositoryDescription(n))
+						.build();
 			} catch (IOException e) {
 				throw new IllegalStateException(
 						"Failed to create repository: " + n, e); //$NON-NLS-1$

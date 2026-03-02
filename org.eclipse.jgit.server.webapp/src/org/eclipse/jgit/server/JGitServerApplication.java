@@ -10,6 +10,7 @@
 package org.eclipse.jgit.server;
 
 import java.util.List;
+import java.util.Properties;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -19,6 +20,7 @@ import org.eclipse.jetty.server.Server;
 import org.eclipse.jetty.server.ServerConnector;
 import org.eclipse.jetty.server.handler.ContextHandlerCollection;
 import org.eclipse.jgit.http.server.GitServlet;
+import org.eclipse.jgit.lib.Repository;
 import org.eclipse.jgit.server.config.HibernateConfig;
 import org.eclipse.jgit.server.config.RepositoryManagerConfig;
 import org.eclipse.jgit.server.resolver.HibernateRepositoryResolver;
@@ -27,6 +29,10 @@ import org.eclipse.jgit.server.rest.HealthResource;
 import org.eclipse.jgit.server.rest.RepositoryResource;
 import org.eclipse.jgit.server.rest.SearchResource;
 import org.eclipse.jgit.storage.hibernate.config.HibernateSessionFactoryProvider;
+import org.eclipse.jgit.transport.ReceivePack;
+import org.eclipse.jgit.transport.resolver.ReceivePackFactory;
+
+import jakarta.servlet.http.HttpServletRequest;
 
 /**
  * Main application entry point for the JGit database-backed server.
@@ -134,9 +140,9 @@ public class JGitServerApplication {
 		gitContext.setContextPath("/git"); //$NON-NLS-1$
 		gitContext.setVirtualHosts(List.of("@git")); //$NON-NLS-1$
 
-		GitServlet gitServlet = new GitServlet();
-		gitServlet.setRepositoryResolver(repositoryResolver);
-		gitContext.addServlet(new ServletHolder(gitServlet), "/*"); //$NON-NLS-1$
+		gitContext.addServlet(
+				new ServletHolder(createGitServlet(repositoryResolver)),
+				"/*"); //$NON-NLS-1$
 
 		contexts.addHandler(restContext);
 		contexts.addHandler(gitContext);
@@ -149,6 +155,90 @@ public class JGitServerApplication {
 		LOG.log(Level.INFO,
 				"  Git HTTP: http://0.0.0.0:{0}/git/", //$NON-NLS-1$
 				Integer.toString(gitPort));
+	}
+
+	/**
+	 * Start the server with explicit Hibernate properties and ports.
+	 * <p>
+	 * Useful for integration testing with Testcontainers where the database
+	 * connection URL and ports are determined at runtime.
+	 *
+	 * @param hibernateProperties
+	 *            Hibernate configuration properties
+	 * @param restPort
+	 *            REST API port (0 for dynamic allocation)
+	 * @param gitPort
+	 *            Git HTTP port (0 for dynamic allocation)
+	 * @throws Exception
+	 *             if server startup fails
+	 */
+	public void start(Properties hibernateProperties, int restPort,
+			int gitPort) throws Exception {
+		sessionFactoryProvider = HibernateConfig
+				.createSessionFactoryProvider(hibernateProperties);
+		repositoryResolver = new HibernateRepositoryResolver(
+				sessionFactoryProvider);
+
+		server = new Server();
+
+		// REST API connector
+		ServerConnector restConnector = new ServerConnector(server);
+		restConnector.setPort(restPort);
+		restConnector.setName("rest"); //$NON-NLS-1$
+
+		// Git HTTP connector
+		ServerConnector gitConnector = new ServerConnector(server);
+		gitConnector.setPort(gitPort);
+		gitConnector.setName("git"); //$NON-NLS-1$
+
+		server.addConnector(restConnector);
+		server.addConnector(gitConnector);
+
+		ContextHandlerCollection contexts = new ContextHandlerCollection();
+
+		// REST API context
+		ServletContextHandler restContext = new ServletContextHandler(
+				ServletContextHandler.SESSIONS);
+		restContext.setContextPath("/api"); //$NON-NLS-1$
+		restContext.setVirtualHosts(List.of("@rest")); //$NON-NLS-1$
+
+		restContext.addServlet(new ServletHolder("health", //$NON-NLS-1$
+				new HealthResource(sessionFactoryProvider)), "/health"); //$NON-NLS-1$
+		restContext.addServlet(
+				new ServletHolder("repos", //$NON-NLS-1$
+						new RepositoryResource(sessionFactoryProvider,
+								repositoryResolver)),
+				"/repos/*"); //$NON-NLS-1$
+		restContext.addServlet(
+				new ServletHolder("search", //$NON-NLS-1$
+						new SearchResource(sessionFactoryProvider)),
+				"/search/*"); //$NON-NLS-1$
+		restContext.addServlet(
+				new ServletHolder("analytics", //$NON-NLS-1$
+						new AnalyticsResource(sessionFactoryProvider)),
+				"/analytics/*"); //$NON-NLS-1$
+
+		// Git Smart HTTP context
+		ServletContextHandler gitContext = new ServletContextHandler(
+				ServletContextHandler.SESSIONS);
+		gitContext.setContextPath("/git"); //$NON-NLS-1$
+		gitContext.setVirtualHosts(List.of("@git")); //$NON-NLS-1$
+
+		gitContext.addServlet(
+				new ServletHolder(createGitServlet(repositoryResolver)),
+				"/*"); //$NON-NLS-1$
+
+		contexts.addHandler(restContext);
+		contexts.addHandler(gitContext);
+		server.setHandler(contexts);
+
+		server.start();
+		LOG.log(Level.INFO, "JGit Server started (test mode)"); //$NON-NLS-1$
+		LOG.log(Level.INFO, "  REST API: http://0.0.0.0:{0}/api/", //$NON-NLS-1$
+				Integer.toString(getRestPort()));
+		LOG.log(Level.INFO,
+				"  Git HTTP: http://0.0.0.0:{0}/git/", //$NON-NLS-1$
+				Integer.toString(getGitPort()));
 	}
 
 	/**
@@ -237,5 +327,33 @@ public class JGitServerApplication {
 			}
 		}
 		return defaultValue;
+	}
+
+	/**
+	 * Create a ReceivePackFactory that allows anonymous push operations.
+	 *
+	 * @return a factory that creates ReceivePack instances without requiring
+	 *         authentication
+	 */
+	private static ReceivePackFactory<HttpServletRequest> createReceivePackFactory() {
+		return (HttpServletRequest req, Repository db) -> new ReceivePack(db);
+	}
+
+	private static GitServlet createGitServlet(
+			HibernateRepositoryResolver resolver) {
+		GitServlet gitServlet = new GitServlet();
+		gitServlet.setRepositoryResolver(resolver);
+		gitServlet.setReceivePackFactory(createReceivePackFactory());
+		gitServlet.setReceivePackErrorHandler(
+				(req, rsp, r) -> {
+					try {
+						r.receive();
+					} catch (Exception e) {
+						LOG.log(Level.SEVERE,
+								"ReceivePack error", e); //$NON-NLS-1$
+						throw e;
+					}
+				});
+		return gitServlet;
 	}
 }
