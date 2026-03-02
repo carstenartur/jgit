@@ -171,27 +171,8 @@
         <artifactId>maven-surefire-plugin</artifactId>
         <configuration>
           <argLine>@{argLine} -Djava.io.tmpdir=${project.build.directory} -Xmx512m</argLine>
-          <!-- Exclude Docker-dependent tests by default -->
-          <excludedGroups>org.eclipse.jgit.storage.hibernate.test.category.DatabaseTest</excludedGroups>
         </configuration>
       </plugin>
     </plugins>
   </build>
-
-  <profiles>
-    <!-- Activate with -Pe2e-tests to include Testcontainer-based E2E tests -->
-    <profile>
-      <id>e2e-tests</id>
-      <build>
-        <plugins>
-          <plugin>
-            <artifactId>maven-surefire-plugin</artifactId>
-            <configuration>
-              <excludedGroups/>
-            </configuration>
-          </plugin>
-        </plugins>
-      </build>
-    </profile>
-  </profiles>
 </project>

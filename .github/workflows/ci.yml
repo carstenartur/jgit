@@ -8,12 +8,16 @@ on:
     branches:
       - master
 
+concurrency:
+  group: "${{ github.workflow }}-${{ github.head_ref || github.sha }}"
+  cancel-in-progress: true
+
 permissions:
   contents: read
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     strategy:
       matrix:
         java-version: ['17']
@@ -31,7 +35,11 @@ jobs:
           distribution: temurin
           cache: maven
 
-      - name: Build and Test
+      # Free disk space for Testcontainer images (MSSQL ~1.5 GB)
+      - name: Free disk space for Docker images
+        run: docker image prune -af
+
+      - name: Build and Test (incl. Testcontainer tests)
         run: mvn verify -B -Pjavac -Ddash.fail=false -Djapicmp.skip=true
 
       - name: Upload test results
