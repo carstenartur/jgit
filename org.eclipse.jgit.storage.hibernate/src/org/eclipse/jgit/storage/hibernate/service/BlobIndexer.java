@@ -196,7 +196,7 @@ public class BlobIndexer {
 	 *            the file content
 	 * @return {@code true} if the content appears to be binary
 	 */
-	static boolean isBinaryContent(byte[] bytes) {
+	public static boolean isBinaryContent(byte[] bytes) {
 		int checkLen = Math.min(bytes.length, BINARY_CHECK_SIZE);
 		for (int i = 0; i < checkLen; i++) {
 			if (bytes[i] == 0) {
