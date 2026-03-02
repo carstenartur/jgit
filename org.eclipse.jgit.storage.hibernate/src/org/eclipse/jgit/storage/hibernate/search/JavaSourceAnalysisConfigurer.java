@@ -9,6 +9,9 @@
  */
 package org.eclipse.jgit.storage.hibernate.search;
 
+import org.apache.lucene.analysis.Analyzer;
+import org.apache.lucene.analysis.TokenStream;
+import org.apache.lucene.analysis.core.LowerCaseFilter;
 import org.hibernate.search.backend.lucene.analysis.LuceneAnalysisConfigurationContext;
 import org.hibernate.search.backend.lucene.analysis.LuceneAnalysisConfigurer;
 
@@ -16,10 +19,10 @@ import org.hibernate.search.backend.lucene.analysis.LuceneAnalysisConfigurer;
  * Configures Lucene analyzers tailored for Java source code search.
  * <p>
  * This configurer defines named analyzers for CamelCase-aware identifier
- * search, file path and package search, commit message analysis, and
- * dot-qualified fully qualified name search. It is registered with Hibernate
- * Search via the {@code hibernate.search.backend.analysis.configurer}
- * property.
+ * search, file path and package search, commit message analysis,
+ * dot-qualified fully qualified name search, and ECJ-based Java source
+ * tokenization. It is registered with Hibernate Search via the
+ * {@code hibernate.search.backend.analysis.configurer} property.
  * </p>
  */
 public class JavaSourceAnalysisConfigurer implements LuceneAnalysisConfigurer {
@@ -57,5 +60,18 @@ public class JavaSourceAnalysisConfigurer implements LuceneAnalysisConfigurer {
 				.param("pattern", "\\.") //$NON-NLS-1$ //$NON-NLS-2$
 				.param("replacement", " ") //$NON-NLS-1$ //$NON-NLS-2$
 				.tokenFilter("lowercase"); //$NON-NLS-1$
+
+		// ECJ Scanner-based analyzer for Java source code
+		context.analyzer("javaSourceEcj") //$NON-NLS-1$
+				.instance(new Analyzer() {
+					@Override
+					protected TokenStreamComponents createComponents(
+							String fieldName) {
+						EcjTokenizer tokenizer = new EcjTokenizer();
+						TokenStream filter = new EcjTokenFilter(tokenizer);
+						filter = new LowerCaseFilter(filter);
+						return new TokenStreamComponents(tokenizer, filter);
+					}
+				});
 	}
 }

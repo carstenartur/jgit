@@ -24,6 +24,7 @@ import org.eclipse.jgit.storage.hibernate.entity.GitCommitIndex;
 import org.eclipse.jgit.storage.hibernate.entity.GitObjectEntity;
 import org.eclipse.jgit.storage.hibernate.entity.GitRefEntity;
 import org.eclipse.jgit.storage.hibernate.entity.GitReflogEntity;
+import org.eclipse.jgit.storage.hibernate.entity.JavaBlobIndex;
 import org.eclipse.jgit.treewalk.TreeWalk;
 import org.hibernate.Session;
 import org.hibernate.SessionFactory;
@@ -375,6 +376,102 @@ public class GitDatabaseQueryService {
 			}
 		}
 		return matches;
+	}
+
+	/**
+	 * Search Java blob indices by type name (declared types or FQNs).
+	 *
+	 * @param repoName
+	 *            the repository name
+	 * @param query
+	 *            the type name query
+	 * @return matching Java blob index entries
+	 */
+	public List<JavaBlobIndex> searchByType(String repoName, String query) {
+		try (Session session = sessionFactory.openSession()) {
+			SearchSession searchSession = Search.session(session);
+			return searchSession.search(JavaBlobIndex.class)
+					.where(f -> f.bool()
+							.must(f.match().field("repositoryName") //$NON-NLS-1$
+									.matching(repoName))
+							.must(f.match()
+									.field("fullyQualifiedNames") //$NON-NLS-1$
+									.field("declaredTypes") //$NON-NLS-1$
+									.matching(query)))
+					.fetchAllHits();
+		}
+	}
+
+	/**
+	 * Search Java blob indices by symbol name (methods and fields).
+	 *
+	 * @param repoName
+	 *            the repository name
+	 * @param query
+	 *            the symbol name query
+	 * @return matching Java blob index entries
+	 */
+	public List<JavaBlobIndex> searchBySymbol(String repoName, String query) {
+		try (Session session = sessionFactory.openSession()) {
+			SearchSession searchSession = Search.session(session);
+			return searchSession.search(JavaBlobIndex.class)
+					.where(f -> f.bool()
+							.must(f.match().field("repositoryName") //$NON-NLS-1$
+									.matching(repoName))
+							.must(f.match()
+									.field("declaredMethods") //$NON-NLS-1$
+									.field("declaredFields") //$NON-NLS-1$
+									.matching(query)))
+					.fetchAllHits();
+		}
+	}
+
+	/**
+	 * Search Java blob indices by type hierarchy (extends/implements).
+	 *
+	 * @param repoName
+	 *            the repository name
+	 * @param typeName
+	 *            the type name to find subtypes of
+	 * @return matching Java blob index entries
+	 */
+	public List<JavaBlobIndex> searchByHierarchy(String repoName,
+			String typeName) {
+		try (Session session = sessionFactory.openSession()) {
+			SearchSession searchSession = Search.session(session);
+			return searchSession.search(JavaBlobIndex.class)
+					.where(f -> f.bool()
+							.must(f.match().field("repositoryName") //$NON-NLS-1$
+									.matching(repoName))
+							.must(f.match()
+									.field("extendsTypes") //$NON-NLS-1$
+									.field("implementsTypes") //$NON-NLS-1$
+									.matching(typeName)))
+					.fetchAllHits();
+		}
+	}
+
+	/**
+	 * Full-text search across Java source snippets.
+	 *
+	 * @param repoName
+	 *            the repository name
+	 * @param query
+	 *            the search query
+	 * @return matching Java blob index entries
+	 */
+	public List<JavaBlobIndex> searchSourceContent(String repoName,
+			String query) {
+		try (Session session = sessionFactory.openSession()) {
+			SearchSession searchSession = Search.session(session);
+			return searchSession.search(JavaBlobIndex.class)
+					.where(f -> f.bool()
+							.must(f.match().field("repositoryName") //$NON-NLS-1$
+									.matching(repoName))
+							.must(f.match().field("sourceSnippet") //$NON-NLS-1$
+									.matching(query)))
+					.fetchAllHits();
+		}
 	}
 
 	/**
