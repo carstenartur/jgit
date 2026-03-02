@@ -17,10 +17,7 @@ import static org.junit.Assert.assertTrue;
 import java.io.File;
 import java.net.HttpURLConnection;
 import java.nio.file.Files;
-import java.sql.Connection;
-import java.sql.DriverManager;
-import java.sql.PreparedStatement;
-import java.sql.ResultSet;
+import java.util.List;
 import java.util.Properties;
 
 import org.eclipse.jgit.api.Git;
@@ -28,6 +25,8 @@ import org.eclipse.jgit.internal.storage.dfs.DfsBlockCache;
 import org.eclipse.jgit.internal.storage.dfs.DfsBlockCacheConfig;
 import org.eclipse.jgit.revwalk.RevCommit;
 import org.eclipse.jgit.server.JGitServerApplication;
+import org.eclipse.jgit.storage.hibernate.entity.GitCommitIndex;
+import org.eclipse.jgit.storage.hibernate.service.GitDatabaseQueryService;
 import org.eclipse.jgit.transport.PushResult;
 import org.eclipse.jgit.transport.RemoteRefUpdate;
 import org.junit.AfterClass;
@@ -60,12 +59,6 @@ public class EndToEndH2Test {
 
 	private static String gitBaseUrl;
 
-	private static String jdbcUrl;
-
-	private static String dbUser;
-
-	private static String dbPassword;
-
 	private static String pushedCommitSha;
 
 	/**
@@ -79,13 +72,11 @@ public class EndToEndH2Test {
 		DfsBlockCache.reconfigure(new DfsBlockCacheConfig());
 
 		Properties props = new Properties();
-		jdbcUrl = "jdbc:h2:mem:e2e-test;DB_CLOSE_DELAY=-1"; //$NON-NLS-1$
-		dbUser = "sa"; //$NON-NLS-1$
-		dbPassword = ""; //$NON-NLS-1$
+		String jdbcUrl = "jdbc:h2:mem:e2e-test;DB_CLOSE_DELAY=-1"; //$NON-NLS-1$
 
 		props.put("hibernate.connection.url", jdbcUrl); //$NON-NLS-1$
-		props.put("hibernate.connection.username", dbUser); //$NON-NLS-1$
-		props.put("hibernate.connection.password", dbPassword); //$NON-NLS-1$
+		props.put("hibernate.connection.username", "sa"); //$NON-NLS-1$ //$NON-NLS-2$
+		props.put("hibernate.connection.password", ""); //$NON-NLS-1$ //$NON-NLS-2$
 		props.put("hibernate.connection.driver_class", //$NON-NLS-1$
 				"org.h2.Driver"); //$NON-NLS-1$
 		props.put("hibernate.dialect", //$NON-NLS-1$
@@ -234,7 +225,7 @@ public class EndToEndH2Test {
 	}
 
 	/**
-	 * Verify the pushed commit is stored in the database via JDBC.
+	 * Verify the pushed commit is searchable via Hibernate Search.
 	 *
 	 * @throws Exception
 	 *             on failure
@@ -243,8 +234,7 @@ public class EndToEndH2Test {
 	public void test06_VerifyCommitInDatabase() throws Exception {
 		assertNotNull("pushedCommitSha should be set by test05", //$NON-NLS-1$
 				pushedCommitSha);
-		// The commit indexer is not automatically triggered during push,
-		// so we use the CommitIndexer directly to index commits
+		// Index the commit (Hibernate Search auto-indexes on persist)
 		org.eclipse.jgit.storage.hibernate.service.CommitIndexer indexer = new org.eclipse.jgit.storage.hibernate.service.CommitIndexer(
 				server.getRepositoryResolver().getSessionFactoryProvider()
 						.getSessionFactory(),
@@ -263,25 +253,20 @@ public class EndToEndH2Test {
 		assertNotNull("Should have a HEAD ref", tipId); //$NON-NLS-1$
 		indexer.indexCommit(repo, tipId);
 
-		try (Connection conn = DriverManager.getConnection(jdbcUrl, dbUser,
-				dbPassword)) {
-			try (PreparedStatement ps = conn.prepareStatement(
-					"SELECT commit_message, author_name, author_email " //$NON-NLS-1$
-							+ "FROM git_commit_index " //$NON-NLS-1$
-							+ "WHERE repository_name = ?")) { //$NON-NLS-1$
-				ps.setString(1, "e2e-test"); //$NON-NLS-1$
-				try (ResultSet rs = ps.executeQuery()) {
-					assertTrue("Expected at least one commit in DB", //$NON-NLS-1$
-							rs.next());
-					assertEquals("Initial e2e commit: add README", //$NON-NLS-1$
-							rs.getString("commit_message")); //$NON-NLS-1$
-					assertEquals("E2E Test", //$NON-NLS-1$
-							rs.getString("author_name")); //$NON-NLS-1$
-					assertEquals("e2e@test.org", //$NON-NLS-1$
-							rs.getString("author_email")); //$NON-NLS-1$
-				}
-			}
-		}
+		// Verify via Hibernate Search through GitDatabaseQueryService
+		GitDatabaseQueryService queryService = new GitDatabaseQueryService(
+				server.getRepositoryResolver().getSessionFactoryProvider()
+						.getSessionFactory());
+		List<GitCommitIndex> results = queryService
+				.searchCommitMessages("e2e-test", "README"); //$NON-NLS-1$ //$NON-NLS-2$
+		assertFalse("Should find at least one commit", //$NON-NLS-1$
+				results.isEmpty());
+		assertEquals("Initial e2e commit: add README", //$NON-NLS-1$
+				results.get(0).getCommitMessage());
+		assertEquals("E2E Test", //$NON-NLS-1$
+				results.get(0).getAuthorName());
+		assertEquals("e2e@test.org", //$NON-NLS-1$
+				results.get(0).getAuthorEmail());
 	}
 
 	/**

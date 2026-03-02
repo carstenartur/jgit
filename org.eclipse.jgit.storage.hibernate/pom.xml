@@ -29,6 +29,8 @@
 
   <properties>
     <hibernate-version>6.6.13.Final</hibernate-version>
+    <hibernate-search-version>7.2.0.Final</hibernate-search-version>
+    <jboss-logging-version>3.6.0.Final</jboss-logging-version>
     <translate-qualifier/>
     <source-bundle-manifest>${project.build.directory}/META-INF/SOURCE-MANIFEST.MF</source-bundle-manifest>
   </properties>
@@ -44,6 +46,25 @@
       <groupId>org.hibernate.orm</groupId>
       <artifactId>hibernate-core</artifactId>
       <version>${hibernate-version}</version>
+    </dependency>
+
+    <dependency>
+      <groupId>org.hibernate.search</groupId>
+      <artifactId>hibernate-search-mapper-orm</artifactId>
+      <version>${hibernate-search-version}</version>
+    </dependency>
+
+    <dependency>
+      <groupId>org.hibernate.search</groupId>
+      <artifactId>hibernate-search-backend-lucene</artifactId>
+      <version>${hibernate-search-version}</version>
+    </dependency>
+
+    <!-- Align jboss-logging version required by Hibernate Search -->
+    <dependency>
+      <groupId>org.jboss.logging</groupId>
+      <artifactId>jboss-logging</artifactId>
+      <version>${jboss-logging-version}</version>
     </dependency>
   </dependencies>
 

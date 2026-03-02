@@ -17,10 +17,7 @@ import static org.junit.Assert.assertTrue;
 import java.io.File;
 import java.net.HttpURLConnection;
 import java.nio.file.Files;
-import java.sql.Connection;
-import java.sql.DriverManager;
-import java.sql.PreparedStatement;
-import java.sql.ResultSet;
+import java.util.List;
 import java.util.Properties;
 
 import org.eclipse.jgit.api.Git;
@@ -29,8 +26,10 @@ import org.eclipse.jgit.internal.storage.dfs.DfsBlockCacheConfig;
 import org.eclipse.jgit.lib.ObjectId;
 import org.eclipse.jgit.revwalk.RevCommit;
 import org.eclipse.jgit.server.JGitServerApplication;
+import org.eclipse.jgit.storage.hibernate.entity.GitCommitIndex;
 import org.eclipse.jgit.storage.hibernate.repository.HibernateRepository;
 import org.eclipse.jgit.storage.hibernate.service.CommitIndexer;
+import org.eclipse.jgit.storage.hibernate.service.GitDatabaseQueryService;
 import org.eclipse.jgit.storage.hibernate.test.category.DatabaseTest;
 import org.eclipse.jgit.transport.PushResult;
 import org.eclipse.jgit.transport.RemoteRefUpdate;
@@ -66,12 +65,6 @@ public class EndToEndMSSQLTest {
 
 	private static String gitBaseUrl;
 
-	private static String jdbcUrl;
-
-	private static String dbUser;
-
-	private static String dbPassword;
-
 	private static String pushedCommitSha;
 
 	/**
@@ -84,14 +77,10 @@ public class EndToEndMSSQLTest {
 	public static void startServer() throws Exception {
 		DfsBlockCache.reconfigure(new DfsBlockCacheConfig());
 
-		jdbcUrl = mssql.getJdbcUrl();
-		dbUser = mssql.getUsername();
-		dbPassword = mssql.getPassword();
-
 		Properties props = new Properties();
-		props.put("hibernate.connection.url", jdbcUrl); //$NON-NLS-1$
-		props.put("hibernate.connection.username", dbUser); //$NON-NLS-1$
-		props.put("hibernate.connection.password", dbPassword); //$NON-NLS-1$
+		props.put("hibernate.connection.url", mssql.getJdbcUrl()); //$NON-NLS-1$
+		props.put("hibernate.connection.username", mssql.getUsername()); //$NON-NLS-1$
+		props.put("hibernate.connection.password", mssql.getPassword()); //$NON-NLS-1$
 		props.put("hibernate.connection.driver_class", //$NON-NLS-1$
 				"com.microsoft.sqlserver.jdbc.SQLServerDriver"); //$NON-NLS-1$
 		props.put("hibernate.dialect", //$NON-NLS-1$
@@ -231,16 +220,16 @@ public class EndToEndMSSQLTest {
 	}
 
 	/**
-	 * Verify the commit is in the MSSQL database via JDBC.
+	 * Verify the commit is searchable via Hibernate Search.
 	 *
 	 * @throws Exception
 	 *             on failure
 	 */
 	@Test
-	public void test06_VerifyCommitViaJDBC() throws Exception {
+	public void test06_VerifyCommitViaHibernateSearch() throws Exception {
 		assertNotNull(pushedCommitSha);
 
-		// Index the commit
+		// Index the commit (Hibernate Search auto-indexes on persist)
 		CommitIndexer indexer = new CommitIndexer(
 				server.getRepositoryResolver().getSessionFactoryProvider()
 						.getSessionFactory(),
@@ -251,24 +240,20 @@ public class EndToEndMSSQLTest {
 		assertNotNull("Should have a HEAD ref", tipId); //$NON-NLS-1$
 		indexer.indexCommit(repo, tipId);
 
-		try (Connection conn = DriverManager.getConnection(jdbcUrl, dbUser,
-				dbPassword)) {
-			try (PreparedStatement ps = conn.prepareStatement(
-					"SELECT commit_message, author_name, author_email " //$NON-NLS-1$
-							+ "FROM git_commit_index " //$NON-NLS-1$
-							+ "WHERE repository_name = ?")) { //$NON-NLS-1$
-				ps.setString(1, "e2e-mssql"); //$NON-NLS-1$
-				try (ResultSet rs = ps.executeQuery()) {
-					assertTrue("Expected commit in MSSQL", rs.next()); //$NON-NLS-1$
-					assertEquals("MSSQL e2e commit: add README", //$NON-NLS-1$
-							rs.getString("commit_message")); //$NON-NLS-1$
-					assertEquals("MSSQL Test", //$NON-NLS-1$
-							rs.getString("author_name")); //$NON-NLS-1$
-					assertEquals("mssql@test.org", //$NON-NLS-1$
-							rs.getString("author_email")); //$NON-NLS-1$
-				}
-			}
-		}
+		// Verify via Hibernate Search through GitDatabaseQueryService
+		GitDatabaseQueryService queryService = new GitDatabaseQueryService(
+				server.getRepositoryResolver().getSessionFactoryProvider()
+						.getSessionFactory());
+		List<GitCommitIndex> results = queryService
+				.searchCommitMessages("e2e-mssql", "README"); //$NON-NLS-1$ //$NON-NLS-2$
+		assertFalse("Should find at least one commit", //$NON-NLS-1$
+				results.isEmpty());
+		assertEquals("MSSQL e2e commit: add README", //$NON-NLS-1$
+				results.get(0).getCommitMessage());
+		assertEquals("MSSQL Test", //$NON-NLS-1$
+				results.get(0).getAuthorName());
+		assertEquals("mssql@test.org", //$NON-NLS-1$
+				results.get(0).getAuthorEmail());
 	}
 
 	/**
@@ -333,26 +318,20 @@ public class EndToEndMSSQLTest {
 	}
 
 	/**
-	 * Verify JDBC object count query returns expected types.
+	 * Verify commit count via Hibernate Search.
 	 *
 	 * @throws Exception
 	 *             on failure
 	 */
 	@Test
-	public void test11_VerifyObjectCountsViaJDBC() throws Exception {
-		try (Connection conn = DriverManager.getConnection(jdbcUrl, dbUser,
-				dbPassword)) {
-			try (PreparedStatement ps = conn.prepareStatement(
-					"SELECT COUNT(*) FROM git_commit_index " //$NON-NLS-1$
-							+ "WHERE repository_name = ?")) { //$NON-NLS-1$
-				ps.setString(1, "e2e-mssql"); //$NON-NLS-1$
-				try (ResultSet rs = ps.executeQuery()) {
-					assertTrue(rs.next());
-					assertTrue("Expected at least one indexed commit", //$NON-NLS-1$
-							rs.getLong(1) >= 1);
-				}
-			}
-		}
+	public void test11_VerifyCommitCountViaHibernateSearch() throws Exception {
+		GitDatabaseQueryService queryService = new GitDatabaseQueryService(
+				server.getRepositoryResolver().getSessionFactoryProvider()
+						.getSessionFactory());
+		List<GitCommitIndex> results = queryService
+				.searchCommitMessages("e2e-mssql", "commit"); //$NON-NLS-1$ //$NON-NLS-2$
+		assertTrue("Expected at least one indexed commit", //$NON-NLS-1$
+				results.size() >= 1);
 	}
 
 	private static ObjectId findHeadTip(HibernateRepository repo)

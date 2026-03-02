@@ -32,11 +32,21 @@ public class HibernateSessionFactoryProvider {
 	 *
 	 * @param properties
 	 *            Hibernate configuration properties including connection URL,
-	 *            driver, dialect, etc.
+	 *            driver, dialect, etc. Hibernate Search defaults to an
+	 *            in-memory Lucene backend if not configured explicitly.
 	 */
 	public HibernateSessionFactoryProvider(Properties properties) {
 		Configuration cfg = new Configuration();
 		cfg.addProperties(properties);
+		// Default Hibernate Search to in-memory Lucene backend
+		if (!properties.containsKey("hibernate.search.backend.type")) { //$NON-NLS-1$
+			cfg.setProperty("hibernate.search.backend.type", "lucene"); //$NON-NLS-1$ //$NON-NLS-2$
+		}
+		if (!properties
+				.containsKey("hibernate.search.backend.directory.type")) { //$NON-NLS-1$
+			cfg.setProperty("hibernate.search.backend.directory.type", //$NON-NLS-1$
+					"local-heap"); //$NON-NLS-1$
+		}
 		cfg.addAnnotatedClass(GitObjectEntity.class);
 		cfg.addAnnotatedClass(GitRefEntity.class);
 		cfg.addAnnotatedClass(GitPackEntity.class);
