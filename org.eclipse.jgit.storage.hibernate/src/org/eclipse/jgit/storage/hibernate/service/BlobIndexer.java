@@ -178,6 +178,16 @@ public class BlobIndexer {
 		}
 	}
 
+	/**
+	 * Pre-load the set of already-indexed blob OIDs for this repository.
+	 * <p>
+	 * This avoids one query per blob during indexing. For repositories with
+	 * very large numbers of indexed blobs, this set may consume
+	 * significant memory (approximately 80 bytes per entry).
+	 * </p>
+	 *
+	 * @return set of blob OID hex strings already in the index
+	 */
 	private Set<String> loadIndexedBlobOids() {
 		try (Session session = sessionFactory.openSession()) {
 			List<String> oids = session.createQuery(

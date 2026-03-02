@@ -87,8 +87,8 @@ public class PropertiesFileStrategy implements FileTypeStrategy {
 			}
 		} catch (IOException e) {
 			LOG.log(Level.WARNING,
-					"Failed to parse properties file: {0}", //$NON-NLS-1$
-					filePath);
+					"Failed to parse properties file: {0}: {1}", //$NON-NLS-1$
+					new Object[] { filePath, e.getMessage() });
 		}
 
 		return data;

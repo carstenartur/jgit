@@ -99,7 +99,7 @@ public class JavaBlobExtractor {
 		} catch (Exception e) {
 			// Graceful degradation: return partial results on parse errors
 			LOG.log(Level.WARNING,
-					"Failed to parse Java source: {0}: {1}", //$NON-NLS-1$
+					"Failed to parse Java source: {0}: {1} - returning partial results", //$NON-NLS-1$
 					new Object[] { filePath, e.getMessage() });
 		}
 
