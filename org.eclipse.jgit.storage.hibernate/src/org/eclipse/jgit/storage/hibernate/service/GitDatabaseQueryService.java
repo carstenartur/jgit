@@ -9,14 +9,22 @@
  */
 package org.eclipse.jgit.storage.hibernate.service;
 
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 
+import org.eclipse.jgit.lib.ObjectLoader;
+import org.eclipse.jgit.lib.ObjectReader;
+import org.eclipse.jgit.lib.Repository;
+import org.eclipse.jgit.revwalk.RevCommit;
+import org.eclipse.jgit.revwalk.RevWalk;
 import org.eclipse.jgit.storage.hibernate.entity.GitCommitIndex;
 import org.eclipse.jgit.storage.hibernate.entity.GitObjectEntity;
 import org.eclipse.jgit.storage.hibernate.entity.GitRefEntity;
 import org.eclipse.jgit.storage.hibernate.entity.GitReflogEntity;
+import org.eclipse.jgit.treewalk.TreeWalk;
 import org.hibernate.Session;
 import org.hibernate.SessionFactory;
 import org.hibernate.search.mapper.orm.Search;
@@ -307,6 +315,66 @@ public class GitDatabaseQueryService {
 					.uniqueResult();
 			return size != null ? size : 0;
 		}
+	}
+
+	private static final int MAX_BLOB_SIZE_FOR_SEARCH = 1024 * 1024; // 1 MB
+
+	/**
+	 * Search commits whose tree blobs contain the given content string.
+	 * <p>
+	 * For each indexed commit in the repository, this method uses JGit's
+	 * {@code RevWalk} and {@code TreeWalk} to read every blob in the commit
+	 * tree and checks whether its UTF-8 text contains {@code contentQuery}.
+	 * Blobs larger than 1 MB are skipped.
+	 *
+	 * @param repoName
+	 *            the repository name
+	 * @param contentQuery
+	 *            the string to search for inside blob content
+	 * @param repo
+	 *            the {@link Repository} object used to read objects
+	 * @return list of {@link GitCommitIndex} entries whose committed files
+	 *         contain the search string
+	 * @throws IOException
+	 *             if an error occurs reading objects from the repository
+	 */
+	public List<GitCommitIndex> searchBlobContent(String repoName,
+			String contentQuery, Repository repo) throws IOException {
+		List<GitCommitIndex> allCommits;
+		try (Session session = sessionFactory.openSession()) {
+			allCommits = session.createQuery(
+					"FROM GitCommitIndex c WHERE c.repositoryName = :repo", //$NON-NLS-1$
+					GitCommitIndex.class)
+					.setParameter("repo", repoName) //$NON-NLS-1$
+					.getResultList();
+		}
+		List<GitCommitIndex> matches = new ArrayList<>();
+		try (RevWalk rw = new RevWalk(repo)) {
+			for (GitCommitIndex idx : allCommits) {
+				RevCommit commit = rw
+						.parseCommit(repo.resolve(idx.getObjectId()));
+				try (ObjectReader reader = repo.newObjectReader();
+						TreeWalk tw = new TreeWalk(reader)) {
+					tw.addTree(commit.getTree());
+					tw.setRecursive(true);
+					while (tw.next()) {
+						ObjectLoader loader = reader
+								.open(tw.getObjectId(0));
+						if (loader.getSize() > MAX_BLOB_SIZE_FOR_SEARCH) {
+							continue;
+						}
+						byte[] bytes = loader.getBytes();
+						String text = new String(bytes,
+								StandardCharsets.UTF_8);
+						if (text.contains(contentQuery)) {
+							matches.add(idx);
+							break;
+						}
+					}
+				}
+			}
+		}
+		return matches;
 	}
 
 	/**

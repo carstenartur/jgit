@@ -95,6 +95,9 @@ public class HibernateConfig {
 		props.put("hibernate.connection.pool_size", "10"); //$NON-NLS-1$ //$NON-NLS-2$
 		props.put("hibernate.show_sql", "false"); //$NON-NLS-1$ //$NON-NLS-2$
 
+		// Apply Hibernate Search / Elasticsearch configuration
+		ElasticsearchConfig.applySearchProperties(props);
+
 		return props;
 	}
 
