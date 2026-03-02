@@ -16,6 +16,7 @@ import org.eclipse.jgit.storage.hibernate.entity.GitObjectEntity;
 import org.eclipse.jgit.storage.hibernate.entity.GitPackEntity;
 import org.eclipse.jgit.storage.hibernate.entity.GitRefEntity;
 import org.eclipse.jgit.storage.hibernate.entity.GitReflogEntity;
+import org.eclipse.jgit.storage.hibernate.entity.JavaBlobIndex;
 import org.hibernate.SessionFactory;
 import org.hibernate.cfg.Configuration;
 
@@ -47,11 +48,17 @@ public class HibernateSessionFactoryProvider {
 			cfg.setProperty("hibernate.search.backend.directory.type", //$NON-NLS-1$
 					"local-heap"); //$NON-NLS-1$
 		}
+		if (!properties
+				.containsKey("hibernate.search.backend.analysis.configurer")) { //$NON-NLS-1$
+			cfg.setProperty("hibernate.search.backend.analysis.configurer", //$NON-NLS-1$
+					"class:org.eclipse.jgit.storage.hibernate.search.JavaSourceAnalysisConfigurer"); //$NON-NLS-1$
+		}
 		cfg.addAnnotatedClass(GitObjectEntity.class);
 		cfg.addAnnotatedClass(GitRefEntity.class);
 		cfg.addAnnotatedClass(GitPackEntity.class);
 		cfg.addAnnotatedClass(GitReflogEntity.class);
 		cfg.addAnnotatedClass(GitCommitIndex.class);
+		cfg.addAnnotatedClass(JavaBlobIndex.class);
 		this.sessionFactory = cfg.buildSessionFactory();
 	}
 

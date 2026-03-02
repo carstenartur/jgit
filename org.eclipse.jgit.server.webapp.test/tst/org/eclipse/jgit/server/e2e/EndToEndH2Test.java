@@ -352,6 +352,119 @@ public class EndToEndH2Test {
 				body.contains("\"packCount\"")); //$NON-NLS-1$
 	}
 
+	/**
+	 * Push a Java file, index it, and search by type via REST API.
+	 *
+	 * @throws Exception
+	 *             on failure
+	 */
+	/**
+	 * Index Java blobs and search by type via REST API.
+	 *
+	 * @throws Exception
+	 *             on failure
+	 */
+	@Test
+	public void test12_PushJavaFileAndSearchByType() throws Exception {
+		// Get the server-side repository and insert a Java file directly
+		org.eclipse.jgit.storage.hibernate.repository.HibernateRepository repo = server
+				.getRepositoryResolver()
+				.getOrCreateRepository("e2e-test"); //$NON-NLS-1$
+
+		org.eclipse.jgit.lib.ObjectId commitId;
+		try (org.eclipse.jgit.lib.ObjectInserter inserter = repo
+				.newObjectInserter()) {
+			byte[] src = ("package org.example;\n\n" //$NON-NLS-1$
+					+ "public class HelloWorld {\n" //$NON-NLS-1$
+					+ "    public static void main(String[] args) {\n" //$NON-NLS-1$
+					+ "        System.out.println(\"Hello\");\n" //$NON-NLS-1$
+					+ "    }\n}\n") //$NON-NLS-1$
+							.getBytes(java.nio.charset.StandardCharsets.UTF_8);
+			org.eclipse.jgit.lib.ObjectId blobId = inserter.insert(
+					org.eclipse.jgit.lib.Constants.OBJ_BLOB, src);
+
+			org.eclipse.jgit.lib.TreeFormatter tree = new org.eclipse.jgit.lib.TreeFormatter();
+			tree.append("HelloWorld.java", //$NON-NLS-1$
+					org.eclipse.jgit.lib.FileMode.REGULAR_FILE, blobId);
+			org.eclipse.jgit.lib.ObjectId treeId = inserter.insert(tree);
+
+			org.eclipse.jgit.lib.CommitBuilder cb = new org.eclipse.jgit.lib.CommitBuilder();
+			cb.setTreeId(treeId);
+			cb.setAuthor(new org.eclipse.jgit.lib.PersonIdent(
+					"E2E Test", "e2e@test.org")); //$NON-NLS-1$ //$NON-NLS-2$
+			cb.setCommitter(new org.eclipse.jgit.lib.PersonIdent(
+					"E2E Test", "e2e@test.org")); //$NON-NLS-1$ //$NON-NLS-2$
+			cb.setMessage("Add HelloWorld.java"); //$NON-NLS-1$
+			commitId = inserter.insert(cb);
+			inserter.flush();
+		}
+
+		// Index the Java blobs
+		org.eclipse.jgit.storage.hibernate.service.BlobIndexer blobIndexer = new org.eclipse.jgit.storage.hibernate.service.BlobIndexer(
+				server.getRepositoryResolver().getSessionFactoryProvider()
+						.getSessionFactory(),
+				"e2e-test"); //$NON-NLS-1$
+		blobIndexer.indexCommitBlobs(repo, commitId);
+
+		// Search by type via REST API
+		HttpURLConnection conn = TestHelper.openGet(restBaseUrl,
+				"/api/search/types?repo=e2e-test&q=HelloWorld"); //$NON-NLS-1$
+		assertEquals(200, conn.getResponseCode());
+		String body = TestHelper.readBody(conn);
+		assertTrue("Should contain results", //$NON-NLS-1$
+				body.contains("\"results\"")); //$NON-NLS-1$
+		assertTrue("Should find HelloWorld", //$NON-NLS-1$
+				body.contains("HelloWorld")); //$NON-NLS-1$
+	}
+
+	/**
+	 * Search by method name via REST API.
+	 *
+	 * @throws Exception
+	 *             on failure
+	 */
+	@Test
+	public void test13_SearchBySymbolViaRest() throws Exception {
+		HttpURLConnection conn = TestHelper.openGet(restBaseUrl,
+				"/api/search/symbols?repo=e2e-test&q=main"); //$NON-NLS-1$
+		assertEquals(200, conn.getResponseCode());
+		String body = TestHelper.readBody(conn);
+		assertTrue("Should contain results", //$NON-NLS-1$
+				body.contains("\"results\"")); //$NON-NLS-1$
+	}
+
+	/**
+	 * Search source content via REST API.
+	 *
+	 * @throws Exception
+	 *             on failure
+	 */
+	@Test
+	public void test14_SearchSourceViaRest() throws Exception {
+		HttpURLConnection conn = TestHelper.openGet(restBaseUrl,
+				"/api/search/source?repo=e2e-test&q=println"); //$NON-NLS-1$
+		assertEquals(200, conn.getResponseCode());
+		String body = TestHelper.readBody(conn);
+		assertTrue("Should contain results", //$NON-NLS-1$
+				body.contains("\"results\"")); //$NON-NLS-1$
+	}
+
+	/**
+	 * Search hierarchy via REST API.
+	 *
+	 * @throws Exception
+	 *             on failure
+	 */
+	@Test
+	public void test15_SearchHierarchyViaRest() throws Exception {
+		HttpURLConnection conn = TestHelper.openGet(restBaseUrl,
+				"/api/search/hierarchy?repo=e2e-test&q=Object"); //$NON-NLS-1$
+		assertEquals(200, conn.getResponseCode());
+		String body = TestHelper.readBody(conn);
+		assertTrue("Should contain results", //$NON-NLS-1$
+				body.contains("\"results\"")); //$NON-NLS-1$
+	}
+
 	private static void deleteRecursive(File file) {
 		if (file.isDirectory()) {
 			File[] children = file.listFiles();

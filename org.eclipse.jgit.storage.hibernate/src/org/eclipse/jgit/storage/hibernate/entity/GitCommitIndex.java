@@ -45,7 +45,7 @@ public class GitCommitIndex {
 	@Column(name = "object_id", length = 40, nullable = false, unique = true)
 	private String objectId;
 
-	@FullTextField
+	@FullTextField(analyzer = "commitMessage")
 	@Column(name = "commit_message", length = 65535)
 	private String commitMessage;
 
@@ -64,7 +64,7 @@ public class GitCommitIndex {
 	@Column(name = "parent_ids", length = 65535)
 	private String parentIds;
 
-	@FullTextField
+	@FullTextField(analyzer = "javaPath")
 	@Column(name = "changed_paths", length = 65535)
 	private String changedPaths;
 

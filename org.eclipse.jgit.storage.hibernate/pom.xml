@@ -66,6 +66,21 @@
       <artifactId>jboss-logging</artifactId>
       <version>${jboss-logging-version}</version>
     </dependency>
+
+    <!-- ECJ (Eclipse Compiler for Java) for Java-aware tokenization -->
+    <dependency>
+      <groupId>org.eclipse.jdt</groupId>
+      <artifactId>ecj</artifactId>
+      <version>3.44.0</version>
+    </dependency>
+
+    <!-- JDT Core for AST-based Java source extraction (optional) -->
+    <dependency>
+      <groupId>org.eclipse.jdt</groupId>
+      <artifactId>org.eclipse.jdt.core</artifactId>
+      <version>3.44.0</version>
+      <optional>true</optional>
+    </dependency>
   </dependencies>
 
   <build>
