@@ -45,7 +45,7 @@ public class GitObjectEntity {
 	private long objectSize;
 
 	@Lob
-	@Column(name = "data", nullable = false)
+	@Column(name = "data", nullable = false, length = Integer.MAX_VALUE)
 	@Basic(fetch = FetchType.LAZY)
 	private byte[] data;
 
