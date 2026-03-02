@@ -23,12 +23,12 @@ import org.hibernate.Session;
 import org.hibernate.SessionFactory;
 
 /**
- * Indexes Git commits into the {@code git_commit_index} table for
- * full-text search and analytics queries.
+ * Populates {@link GitCommitIndex} entities from Git commit data.
  * <p>
- * This service walks commits and populates the {@link GitCommitIndex} entity
+ * This service walks commits and persists {@link GitCommitIndex} entities
  * with commit metadata including author, message, timestamp, parent IDs,
- * and changed file paths.
+ * and changed file paths. Hibernate Search automatically indexes these
+ * entities for full-text search when they are persisted.
  */
 public class CommitIndexer {
 

@@ -11,6 +11,11 @@ package org.eclipse.jgit.storage.hibernate.entity;
 
 import java.time.Instant;
 
+import org.hibernate.search.mapper.pojo.mapping.definition.annotation.FullTextField;
+import org.hibernate.search.mapper.pojo.mapping.definition.annotation.GenericField;
+import org.hibernate.search.mapper.pojo.mapping.definition.annotation.Indexed;
+import org.hibernate.search.mapper.pojo.mapping.definition.annotation.KeywordField;
+
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
@@ -19,9 +24,11 @@ import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 
 /**
- * Entity for indexing Git commit metadata. Provides full-text search
- * capabilities over commit messages, author information, and changed paths.
+ * Entity for indexing Git commit metadata. Annotated with Hibernate Search
+ * {@link Indexed} so that full-text search capabilities are automatically
+ * maintained when entities are persisted through Hibernate ORM.
  */
+@Indexed
 @Entity
 @Table(name = "git_commit_index")
 public class GitCommitIndex {
@@ -30,27 +37,34 @@ public class GitCommitIndex {
 	@GeneratedValue(strategy = GenerationType.IDENTITY)
 	private Long id;
 
+	@KeywordField
 	@Column(name = "repository_name", nullable = false)
 	private String repositoryName;
 
+	@KeywordField
 	@Column(name = "object_id", length = 40, nullable = false, unique = true)
 	private String objectId;
 
+	@FullTextField
 	@Column(name = "commit_message", length = 65535)
 	private String commitMessage;
 
+	@KeywordField
 	@Column(name = "author_name")
 	private String authorName;
 
+	@KeywordField
 	@Column(name = "author_email")
 	private String authorEmail;
 
+	@GenericField
 	@Column(name = "commit_time")
 	private Instant commitTime;
 
 	@Column(name = "parent_ids", length = 65535)
 	private String parentIds;
 
+	@FullTextField
 	@Column(name = "changed_paths", length = 65535)
 	private String changedPaths;
 

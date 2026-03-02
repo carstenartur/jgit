@@ -19,14 +19,16 @@ import org.eclipse.jgit.storage.hibernate.entity.GitRefEntity;
 import org.eclipse.jgit.storage.hibernate.entity.GitReflogEntity;
 import org.hibernate.Session;
 import org.hibernate.SessionFactory;
+import org.hibernate.search.mapper.orm.Search;
+import org.hibernate.search.mapper.orm.session.SearchSession;
 
 /**
- * Extended query service that leverages the relational database for operations
- * impossible with filesystem-based Git storage.
+ * Extended query service that leverages the relational database and Hibernate
+ * Search for operations impossible with filesystem-based Git storage.
  * <p>
- * This service provides SQL-based queries over Git data, including full-text
- * search across commit messages, author statistics, cross-repository object
- * deduplication, and time-based queries.
+ * Full-text search across commit messages and changed paths is powered by
+ * Hibernate Search with a Lucene backend. Other queries (statistics,
+ * time-range, reflog, pack analytics) use standard HQL.
  */
 public class GitDatabaseQueryService {
 
@@ -43,7 +45,7 @@ public class GitDatabaseQueryService {
 	}
 
 	/**
-	 * Search commit messages using SQL LIKE.
+	 * Search commit messages using Hibernate Search full-text query.
 	 *
 	 * @param repoName
 	 *            the repository name
@@ -54,10 +56,14 @@ public class GitDatabaseQueryService {
 	public List<GitCommitIndex> searchCommitMessages(String repoName,
 			String query) {
 		try (Session session = sessionFactory.openSession()) {
-			return session.createQuery(
-					"FROM GitCommitIndex c WHERE c.repositoryName = :repo AND c.commitMessage LIKE :q", //$NON-NLS-1$
-					GitCommitIndex.class).setParameter("repo", repoName) //$NON-NLS-1$
-					.setParameter("q", "%" + query + "%").getResultList(); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
+			SearchSession searchSession = Search.session(session);
+			return searchSession.search(GitCommitIndex.class)
+					.where(f -> f.bool()
+							.must(f.match().field("repositoryName") //$NON-NLS-1$
+									.matching(repoName))
+							.must(f.match().field("commitMessage") //$NON-NLS-1$
+									.matching(query)))
+					.fetchAllHits();
 		}
 	}
 
@@ -154,7 +160,7 @@ public class GitDatabaseQueryService {
 	}
 
 	/**
-	 * Search commits by changed path pattern.
+	 * Search commits by changed path using Hibernate Search full-text query.
 	 *
 	 * @param repoName
 	 *            the repository name
@@ -165,11 +171,14 @@ public class GitDatabaseQueryService {
 	public List<GitCommitIndex> searchByChangedPath(String repoName,
 			String pathPattern) {
 		try (Session session = sessionFactory.openSession()) {
-			return session.createQuery(
-					"FROM GitCommitIndex c WHERE c.repositoryName = :repo AND c.changedPaths LIKE :path", //$NON-NLS-1$
-					GitCommitIndex.class).setParameter("repo", repoName) //$NON-NLS-1$
-					.setParameter("path", "%" + pathPattern + "%") //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
-					.getResultList();
+			SearchSession searchSession = Search.session(session);
+			return searchSession.search(GitCommitIndex.class)
+					.where(f -> f.bool()
+							.must(f.match().field("repositoryName") //$NON-NLS-1$
+									.matching(repoName))
+							.must(f.match().field("changedPaths") //$NON-NLS-1$
+									.matching(pathPattern)))
+					.fetchAllHits();
 		}
 	}
 

@@ -43,7 +43,7 @@ public class GitPackEntity {
 
 	@Lob
 	@Basic(fetch = FetchType.LAZY)
-	@Column(name = "data", nullable = false)
+	@Column(name = "data", nullable = false, length = Integer.MAX_VALUE)
 	private byte[] data;
 
 	@Column(name = "file_size", nullable = false)
