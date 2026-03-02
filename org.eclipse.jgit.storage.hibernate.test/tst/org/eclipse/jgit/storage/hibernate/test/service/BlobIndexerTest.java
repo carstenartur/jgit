@@ -63,6 +63,7 @@ public class BlobIndexerTest {
 				"org.hibernate.dialect.H2Dialect");
 		props.put("hibernate.hbm2ddl.auto", "create-drop");
 		props.put("hibernate.show_sql", "false");
+		props.put("hibernate.search.backend.directory.type", "local-heap");
 
 		provider = new HibernateSessionFactoryProvider(props);
 

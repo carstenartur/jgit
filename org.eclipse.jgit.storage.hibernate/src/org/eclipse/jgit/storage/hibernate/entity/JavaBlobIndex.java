@@ -9,6 +9,7 @@
  */
 package org.eclipse.jgit.storage.hibernate.entity;
 
+import org.hibernate.annotations.Nationalized;
 import org.hibernate.search.mapper.pojo.mapping.definition.annotation.FullTextField;
 import org.hibernate.search.mapper.pojo.mapping.definition.annotation.Indexed;
 import org.hibernate.search.mapper.pojo.mapping.definition.annotation.KeywordField;
@@ -18,6 +19,7 @@ import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.Index;
 import jakarta.persistence.Table;
 
 /**
@@ -31,7 +33,11 @@ import jakarta.persistence.Table;
  */
 @Indexed
 @Entity
-@Table(name = "java_blob_index")
+@Table(name = "java_blob_index", indexes = {
+		@Index(name = "idx_blob_repo", columnList = "repository_name"),
+		@Index(name = "idx_blob_blob_oid", columnList = "blob_object_id"),
+		@Index(name = "idx_blob_commit_oid", columnList = "commit_object_id"),
+		@Index(name = "idx_blob_repo_commit", columnList = "repository_name, commit_object_id") })
 public class JavaBlobIndex {
 
 	@Id
@@ -55,42 +61,52 @@ public class JavaBlobIndex {
 	private String fileType;
 
 	@FullTextField(analyzer = "javaPath")
+	@Nationalized
 	@Column(name = "file_path", length = 1024)
 	private String filePath;
 
+	@Nationalized
 	@KeywordField
 	@Column(name = "package_name", length = 512)
 	private String packageName;
 
 	@FullTextField(analyzer = "dotQualifiedName")
+	@Nationalized
 	@Column(name = "declared_types", length = 65535)
 	private String declaredTypes;
 
 	@FullTextField(analyzer = "dotQualifiedName")
+	@Nationalized
 	@Column(name = "fully_qualified_names", length = 65535)
 	private String fullyQualifiedNames;
 
 	@FullTextField(analyzer = "javaIdentifier")
+	@Nationalized
 	@Column(name = "declared_methods", length = 65535)
 	private String declaredMethods;
 
 	@FullTextField(analyzer = "javaIdentifier")
+	@Nationalized
 	@Column(name = "declared_fields", length = 65535)
 	private String declaredFields;
 
 	@FullTextField(analyzer = "dotQualifiedName")
+	@Nationalized
 	@Column(name = "extends_types", length = 65535)
 	private String extendsTypes;
 
 	@FullTextField(analyzer = "dotQualifiedName")
+	@Nationalized
 	@Column(name = "implements_types", length = 65535)
 	private String implementsTypes;
 
 	@FullTextField(analyzer = "dotQualifiedName")
+	@Nationalized
 	@Column(name = "import_statements", length = 65535)
 	private String importStatements;
 
 	@FullTextField(analyzer = "javaSourceEcj")
+	@Nationalized
 	@Column(name = "source_snippet", length = 65535)
 	private String sourceSnippet;
 

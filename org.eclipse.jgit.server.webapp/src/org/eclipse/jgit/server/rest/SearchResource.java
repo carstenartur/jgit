@@ -56,6 +56,12 @@ public class SearchResource extends HttpServlet {
 
 	private final Gson gson = new Gson();
 
+	private static final int MAX_QUERY_LENGTH = 1000;
+
+	private static final int MAX_LIMIT = 100;
+
+	private static final int DEFAULT_LIMIT = 20;
+
 	/**
 	 * Create a search endpoint.
 	 *
@@ -80,7 +86,7 @@ public class SearchResource extends HttpServlet {
 		String repo = req.getParameter("repo"); //$NON-NLS-1$
 		String query = req.getParameter("q"); //$NON-NLS-1$
 		int offset = parseIntParam(req, "offset", 0); //$NON-NLS-1$
-		int limit = parseIntParam(req, "limit", 20); //$NON-NLS-1$
+		int limit = parseIntParam(req, "limit", DEFAULT_LIMIT); //$NON-NLS-1$
 
 		if (repo == null || repo.isEmpty() || query == null
 				|| query.isEmpty()) {
@@ -90,6 +96,31 @@ public class SearchResource extends HttpServlet {
 			}
 			return;
 		}
+
+		// Input validation: limit query length to prevent abuse
+		if (query.length() > MAX_QUERY_LENGTH) {
+			resp.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+			try (PrintWriter w = resp.getWriter()) {
+				w.write("{\"error\":\"Query too long (max " //$NON-NLS-1$
+						+ MAX_QUERY_LENGTH + " characters)\"}"); //$NON-NLS-1$
+			}
+			return;
+		}
+
+		// Enforce pagination limits
+		if (offset < 0) {
+			offset = 0;
+		}
+		if (limit < 1) {
+			limit = DEFAULT_LIMIT;
+		}
+		if (limit > MAX_LIMIT) {
+			limit = MAX_LIMIT;
+		}
+
+		// Sanitize repo and query parameters
+		repo = sanitizeInput(repo);
+		query = sanitizeInput(query);
 
 		try {
 			GitDatabaseQueryService queryService = new GitDatabaseQueryService(
@@ -265,5 +296,20 @@ public class SearchResource extends HttpServlet {
 		} catch (NumberFormatException e) {
 			return defaultValue;
 		}
+	}
+
+	/**
+	 * Sanitize user input by stripping control characters.
+	 *
+	 * @param input
+	 *            the raw input string
+	 * @return the sanitized string
+	 */
+	private static String sanitizeInput(String input) {
+		if (input == null) {
+			return null;
+		}
+		// Strip control characters except common whitespace
+		return input.replaceAll("[\\p{Cntrl}&&[^\t\n\r]]", ""); //$NON-NLS-1$ //$NON-NLS-2$
 	}
 }

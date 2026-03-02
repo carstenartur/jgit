@@ -11,6 +11,7 @@ package org.eclipse.jgit.storage.hibernate.entity;
 
 import java.time.Instant;
 
+import org.hibernate.annotations.Nationalized;
 import org.hibernate.search.mapper.pojo.mapping.definition.annotation.FullTextField;
 import org.hibernate.search.mapper.pojo.mapping.definition.annotation.GenericField;
 import org.hibernate.search.mapper.pojo.mapping.definition.annotation.Indexed;
@@ -21,6 +22,7 @@ import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.Index;
 import jakarta.persistence.Table;
 
 /**
@@ -30,7 +32,11 @@ import jakarta.persistence.Table;
  */
 @Indexed
 @Entity
-@Table(name = "git_commit_index")
+@Table(name = "git_commit_index", indexes = {
+		@Index(name = "idx_commit_repo", columnList = "repository_name"),
+		@Index(name = "idx_commit_oid", columnList = "object_id", unique = true),
+		@Index(name = "idx_commit_repo_time", columnList = "repository_name, commit_time"),
+		@Index(name = "idx_commit_author", columnList = "author_name, author_email") })
 public class GitCommitIndex {
 
 	@Id
@@ -46,13 +52,16 @@ public class GitCommitIndex {
 	private String objectId;
 
 	@FullTextField(analyzer = "commitMessage")
+	@Nationalized
 	@Column(name = "commit_message", length = 65535)
 	private String commitMessage;
 
+	@Nationalized
 	@KeywordField
 	@Column(name = "author_name")
 	private String authorName;
 
+	@Nationalized
 	@KeywordField
 	@Column(name = "author_email")
 	private String authorEmail;
@@ -65,6 +74,7 @@ public class GitCommitIndex {
 	private String parentIds;
 
 	@FullTextField(analyzer = "javaPath")
+	@Nationalized
 	@Column(name = "changed_paths", length = 65535)
 	private String changedPaths;
 

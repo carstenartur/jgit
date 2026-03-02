@@ -11,6 +11,8 @@ package org.eclipse.jgit.storage.hibernate.entity;
 
 import java.time.Instant;
 
+import org.hibernate.annotations.Nationalized;
+
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
@@ -18,6 +20,7 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 import jakarta.persistence.UniqueConstraint;
+import jakarta.persistence.Version;
 
 /**
  * Entity representing a Git reference stored in the database.
@@ -31,9 +34,14 @@ public class GitRefEntity {
 	@GeneratedValue(strategy = GenerationType.IDENTITY)
 	private Long id;
 
+	@Version
+	@Column(name = "version")
+	private Long version;
+
 	@Column(name = "repository_name", nullable = false)
 	private String repositoryName;
 
+	@Nationalized
 	@Column(name = "ref_name", nullable = false, length = 512)
 	private String refName;
 
@@ -73,6 +81,25 @@ public class GitRefEntity {
 	 */
 	public void setId(Long id) {
 		this.id = id;
+	}
+
+	/**
+	 * Get the optimistic locking version.
+	 *
+	 * @return the version
+	 */
+	public Long getVersion() {
+		return version;
+	}
+
+	/**
+	 * Set the optimistic locking version.
+	 *
+	 * @param version
+	 *            the version
+	 */
+	public void setVersion(Long version) {
+		this.version = version;
 	}
 
 	/**

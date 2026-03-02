@@ -83,6 +83,7 @@ public class EndToEndH2Test {
 				"org.hibernate.dialect.H2Dialect"); //$NON-NLS-1$
 		props.put("hibernate.hbm2ddl.auto", "create"); //$NON-NLS-1$ //$NON-NLS-2$
 		props.put("hibernate.show_sql", "false"); //$NON-NLS-1$ //$NON-NLS-2$
+		props.put("hibernate.search.backend.directory.type", "local-heap"); //$NON-NLS-1$ //$NON-NLS-2$
 
 		server = new JGitServerApplication();
 		server.start(props, 0, 0);
