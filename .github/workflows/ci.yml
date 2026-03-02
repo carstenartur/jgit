@@ -40,7 +40,7 @@ jobs:
         run: docker image prune -af
 
       - name: Build and Test (incl. Testcontainer tests)
-        run: mvn verify -B -Pjavac -Ddash.fail=false -Djapicmp.skip=true
+        run: mvn verify -B -Pjavac -Ddash.skip=true -Djapicmp.skip=true
 
       - name: Upload test results
         if: always()
