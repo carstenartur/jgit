@@ -7,10 +7,12 @@
  *
  * SPDX-License-Identifier: BSD-3-Clause
  */
-package org.eclipse.jgit.storage.hibernate.service;
+package org.eclipse.jgit.storage.hibernate.search.strategies;
 
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Set;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -18,53 +20,36 @@ import org.eclipse.jdt.core.dom.AST;
 import org.eclipse.jdt.core.dom.ASTParser;
 import org.eclipse.jdt.core.dom.CompilationUnit;
 import org.eclipse.jdt.core.dom.ImportDeclaration;
-import org.eclipse.jgit.storage.hibernate.entity.JavaBlobIndex;
+import org.eclipse.jgit.storage.hibernate.search.BlobIndexData;
+import org.eclipse.jgit.storage.hibernate.search.FileTypeStrategy;
 import org.eclipse.jgit.storage.hibernate.search.JavaStructureVisitor;
 
 /**
- * Extracts structural metadata from Java source code using JDT's
- * {@link ASTParser} without bindings.
- * <p>
- * This extractor parses Java source files into an AST and visits the tree to
- * collect package names, declared types, methods, fields, supertypes,
- * interfaces, and import statements. No classpath or binding resolution is
- * required.
- * </p>
+ * Strategy for extracting structural metadata from Java source files using
+ * JDT's AST parser.
  */
-public class JavaBlobExtractor {
+public class JavaFileStrategy implements FileTypeStrategy {
 
 	private static final Logger LOG = Logger
-			.getLogger(JavaBlobExtractor.class.getName());
+			.getLogger(JavaFileStrategy.class.getName());
 
 	private static final int MAX_SNIPPET_LENGTH = 65535;
 
-	/**
-	 * Extract structural metadata from a Java source file.
-	 *
-	 * @param source
-	 *            the Java source code
-	 * @param filePath
-	 *            the file path within the repository
-	 * @param repoName
-	 *            the repository name
-	 * @param blobOid
-	 *            the blob object SHA-1
-	 * @param commitOid
-	 *            the commit object SHA-1
-	 * @return a populated {@link JavaBlobIndex} entity
-	 */
-	public JavaBlobIndex extract(String source, String filePath,
-			String repoName, String blobOid, String commitOid) {
-		JavaBlobIndex idx = new JavaBlobIndex();
-		idx.setRepositoryName(repoName);
-		idx.setBlobObjectId(blobOid);
-		idx.setCommitObjectId(commitOid);
-		idx.setFilePath(filePath);
-		idx.setSourceSnippet(truncate(source, MAX_SNIPPET_LENGTH));
+	@Override
+	public Set<String> supportedExtensions() {
+		return Set.of(".java"); //$NON-NLS-1$
+	}
 
-		if (!filePath.endsWith(".java")) { //$NON-NLS-1$
-			return idx;
-		}
+	@Override
+	public Set<String> supportedFilenames() {
+		return Collections.emptySet();
+	}
+
+	@Override
+	public BlobIndexData extract(String source, String filePath) {
+		BlobIndexData data = new BlobIndexData();
+		data.setFileType("java"); //$NON-NLS-1$
+		data.setSourceSnippet(truncate(source, MAX_SNIPPET_LENGTH));
 
 		try {
 			@SuppressWarnings("deprecation")
@@ -75,27 +60,24 @@ public class JavaBlobExtractor {
 
 			CompilationUnit cu = (CompilationUnit) parser.createAST(null);
 
-			// Extract package
 			if (cu.getPackage() != null) {
-				idx.setPackageName(cu.getPackage().getName()
+				data.setPackageOrNamespace(cu.getPackage().getName()
 						.getFullyQualifiedName());
 			}
 
-			// Build import map for FQN resolution of simple names
 			Map<String, String> importMap = buildImportMap(cu);
-			idx.setImportStatements(serializeImports(cu));
+			data.setImportStatements(serializeImports(cu));
 
-			// Walk AST for types, methods, fields, extends, implements
-			JavaStructureVisitor visitor = new JavaStructureVisitor(importMap,
-					idx.getPackageName());
+			JavaStructureVisitor visitor = new JavaStructureVisitor(
+					importMap, data.getPackageOrNamespace());
 			cu.accept(visitor);
 
-			idx.setDeclaredTypes(visitor.getTypes());
-			idx.setFullyQualifiedNames(visitor.getFQNs());
-			idx.setDeclaredMethods(visitor.getMethods());
-			idx.setDeclaredFields(visitor.getFields());
-			idx.setExtendsTypes(visitor.getSuperTypes());
-			idx.setImplementsTypes(visitor.getInterfaces());
+			data.setDeclaredTypes(visitor.getTypes());
+			data.setFullyQualifiedNames(visitor.getFQNs());
+			data.setDeclaredMethods(visitor.getMethods());
+			data.setDeclaredFields(visitor.getFields());
+			data.setExtendsTypes(visitor.getSuperTypes());
+			data.setImplementsTypes(visitor.getInterfaces());
 		} catch (Exception e) {
 			// Graceful degradation: return partial results on parse errors
 			LOG.log(Level.WARNING,
@@ -103,7 +85,12 @@ public class JavaBlobExtractor {
 					new Object[] { filePath, e.getMessage() });
 		}
 
-		return idx;
+		return data;
+	}
+
+	@Override
+	public String fileType() {
+		return "java"; //$NON-NLS-1$
 	}
 
 	private static Map<String, String> buildImportMap(CompilationUnit cu) {

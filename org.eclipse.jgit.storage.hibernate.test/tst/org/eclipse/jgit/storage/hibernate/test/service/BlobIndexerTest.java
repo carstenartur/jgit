@@ -11,8 +11,6 @@ package org.eclipse.jgit.storage.hibernate.test.service;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertTrue;
-
 import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Properties;

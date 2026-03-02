@@ -11,6 +11,12 @@ package org.eclipse.jgit.storage.hibernate.service;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 import org.eclipse.jgit.lib.ObjectId;
 import org.eclipse.jgit.lib.ObjectLoader;
@@ -29,12 +35,22 @@ import org.hibernate.SessionFactory;
  * <p>
  * Complements {@link CommitIndexer} by walking each commit's tree and
  * extracting structural metadata from {@code .java} files using
- * {@link JavaBlobExtractor}. Blobs larger than 1 MB are skipped.
+ * {@link JavaBlobExtractor}. Blobs larger than the configured maximum size
+ * are skipped. Entities are persisted in configurable batches.
  * </p>
  */
 public class BlobIndexer {
 
-	private static final int MAX_BLOB_SIZE = 1024 * 1024;
+	private static final Logger LOG = Logger
+			.getLogger(BlobIndexer.class.getName());
+
+	/** Default maximum blob size in bytes (1 MB). */
+	public static final int DEFAULT_MAX_BLOB_SIZE = 1024 * 1024;
+
+	/** Default batch size for persist operations. */
+	public static final int DEFAULT_BATCH_SIZE = 50;
+
+	private static final int BINARY_CHECK_SIZE = 8192;
 
 	private final SessionFactory sessionFactory;
 
@@ -42,8 +58,12 @@ public class BlobIndexer {
 
 	private final JavaBlobExtractor extractor;
 
+	private final int maxBlobSize;
+
+	private final int batchSize;
+
 	/**
-	 * Create a new blob indexer.
+	 * Create a new blob indexer with default settings.
 	 *
 	 * @param sessionFactory
 	 *            the Hibernate session factory
@@ -52,9 +72,29 @@ public class BlobIndexer {
 	 */
 	public BlobIndexer(SessionFactory sessionFactory,
 			String repositoryName) {
+		this(sessionFactory, repositoryName, DEFAULT_MAX_BLOB_SIZE,
+				DEFAULT_BATCH_SIZE);
+	}
+
+	/**
+	 * Create a new blob indexer with custom settings.
+	 *
+	 * @param sessionFactory
+	 *            the Hibernate session factory
+	 * @param repositoryName
+	 *            the repository name for partitioning
+	 * @param maxBlobSize
+	 *            the maximum blob size in bytes to index
+	 * @param batchSize
+	 *            number of entities to persist per transaction batch
+	 */
+	public BlobIndexer(SessionFactory sessionFactory,
+			String repositoryName, int maxBlobSize, int batchSize) {
 		this.sessionFactory = sessionFactory;
 		this.repositoryName = repositoryName;
 		this.extractor = new JavaBlobExtractor();
+		this.maxBlobSize = maxBlobSize;
+		this.batchSize = batchSize;
 	}
 
 	/**
@@ -70,6 +110,10 @@ public class BlobIndexer {
 	 */
 	public int indexCommitBlobs(Repository repo, ObjectId commitId)
 			throws IOException {
+		LOG.log(Level.INFO, "Starting blob indexing for commit {0} in {1}", //$NON-NLS-1$
+				new Object[] { commitId.name(), repositoryName });
+		Set<String> alreadyIndexed = loadIndexedBlobOids();
+		List<JavaBlobIndex> batch = new ArrayList<>();
 		int count = 0;
 		try (RevWalk rw = new RevWalk(repo)) {
 			RevCommit commit = rw.parseCommit(commitId);
@@ -83,42 +127,92 @@ public class BlobIndexer {
 						continue;
 					}
 					ObjectLoader loader = reader.open(tw.getObjectId(0));
-					if (loader.getSize() > MAX_BLOB_SIZE) {
+					if (loader.getSize() > maxBlobSize) {
+						LOG.log(Level.FINE,
+								"Skipping blob too large ({0} bytes): {1}", //$NON-NLS-1$
+								new Object[] {
+										Long.valueOf(loader.getSize()),
+										path });
 						continue;
 					}
 					String blobOid = tw.getObjectId(0).name();
-					if (isAlreadyIndexed(blobOid)) {
+					if (alreadyIndexed.contains(blobOid)) {
 						continue;
 					}
-					String source = new String(loader.getBytes(),
+					byte[] bytes = loader.getBytes();
+					if (isBinaryContent(bytes)) {
+						LOG.log(Level.FINE,
+								"Skipping binary blob: {0}", path); //$NON-NLS-1$
+						continue;
+					}
+					String source = new String(bytes,
 							StandardCharsets.UTF_8);
 					JavaBlobIndex idx = extractor.extract(source, path,
 							repositoryName, blobOid, commitId.name());
-					persist(idx);
+					batch.add(idx);
+					alreadyIndexed.add(blobOid);
 					count++;
+					if (batch.size() >= batchSize) {
+						persistBatch(batch);
+						batch.clear();
+					}
 				}
 			}
 		}
+		if (!batch.isEmpty()) {
+			persistBatch(batch);
+		}
+		LOG.log(Level.INFO,
+				"Completed blob indexing for commit {0}: {1} blobs indexed", //$NON-NLS-1$
+				new Object[] { commitId.name(), Integer.valueOf(count) });
 		return count;
 	}
 
-	private void persist(JavaBlobIndex idx) {
+	private void persistBatch(List<JavaBlobIndex> entities) {
 		try (Session session = sessionFactory.openSession()) {
 			session.beginTransaction();
-			session.persist(idx);
+			for (JavaBlobIndex idx : entities) {
+				session.persist(idx);
+			}
 			session.getTransaction().commit();
 		}
 	}
 
-	private boolean isAlreadyIndexed(String blobObjectId) {
+	/**
+	 * Pre-load the set of already-indexed blob OIDs for this repository.
+	 * <p>
+	 * This avoids one query per blob during indexing. For repositories with
+	 * very large numbers of indexed blobs, this set may consume
+	 * significant memory (approximately 80 bytes per entry).
+	 * </p>
+	 *
+	 * @return set of blob OID hex strings already in the index
+	 */
+	private Set<String> loadIndexedBlobOids() {
 		try (Session session = sessionFactory.openSession()) {
-			Long count = session.createQuery(
-					"SELECT COUNT(j) FROM JavaBlobIndex j WHERE j.repositoryName = :repo AND j.blobObjectId = :oid", //$NON-NLS-1$
-					Long.class)
+			List<String> oids = session.createQuery(
+					"SELECT j.blobObjectId FROM JavaBlobIndex j WHERE j.repositoryName = :repo", //$NON-NLS-1$
+					String.class)
 					.setParameter("repo", repositoryName) //$NON-NLS-1$
-					.setParameter("oid", blobObjectId) //$NON-NLS-1$
-					.uniqueResult();
-			return count != null && count > 0;
+					.getResultList();
+			return new HashSet<>(oids);
 		}
+	}
+
+	/**
+	 * Detect binary content by checking for null bytes in the first 8 KB.
+	 *
+	 * @param bytes
+	 *            the file content
+	 * @return {@code true} if the content appears to be binary
+	 */
+	public static boolean isBinaryContent(byte[] bytes) {
+		int checkLen = Math.min(bytes.length, BINARY_CHECK_SIZE);
+		for (int i = 0; i < checkLen; i++) {
+			if (bytes[i] == 0) {
+				return true;
+			}
+		}
+		return false;
 	}
 }

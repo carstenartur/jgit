@@ -79,6 +79,8 @@ public class SearchResource extends HttpServlet {
 
 		String repo = req.getParameter("repo"); //$NON-NLS-1$
 		String query = req.getParameter("q"); //$NON-NLS-1$
+		int offset = parseIntParam(req, "offset", 0); //$NON-NLS-1$
+		int limit = parseIntParam(req, "limit", 20); //$NON-NLS-1$
 
 		if (repo == null || repo.isEmpty() || query == null
 				|| query.isEmpty()) {
@@ -94,20 +96,27 @@ public class SearchResource extends HttpServlet {
 					provider.getSessionFactory());
 
 			if (pathInfo.startsWith("/commits")) { //$NON-NLS-1$
-				handleCommitSearch(queryService, repo, query, resp);
+				handleCommitSearch(queryService, repo, query, offset,
+						limit, resp);
 			} else if (pathInfo.startsWith("/paths")) { //$NON-NLS-1$
-				handlePathSearch(queryService, repo, query, resp);
+				handlePathSearch(queryService, repo, query, offset,
+						limit, resp);
 			} else if (pathInfo.startsWith("/types")) { //$NON-NLS-1$
-				handleTypeSearch(queryService, repo, query, resp);
+				handleTypeSearch(queryService, repo, query, offset,
+						limit, resp);
 			} else if (pathInfo.startsWith("/symbols")) { //$NON-NLS-1$
-				handleSymbolSearch(queryService, repo, query, resp);
+				handleSymbolSearch(queryService, repo, query, offset,
+						limit, resp);
 			} else if (pathInfo.startsWith("/hierarchy")) { //$NON-NLS-1$
-				handleHierarchySearch(queryService, repo, query, resp);
+				handleHierarchySearch(queryService, repo, query, offset,
+						limit, resp);
 			} else if (pathInfo.startsWith("/source")) { //$NON-NLS-1$
-				handleSourceSearch(queryService, repo, query, resp);
+				handleSourceSearch(queryService, repo, query, offset,
+						limit, resp);
 			} else {
 				// Default: search commits
-				handleCommitSearch(queryService, repo, query, resp);
+				handleCommitSearch(queryService, repo, query, offset,
+						limit, resp);
 			}
 		} catch (Exception e) {
 			LOG.log(Level.WARNING, "Search error", e); //$NON-NLS-1$
@@ -119,10 +128,10 @@ public class SearchResource extends HttpServlet {
 	}
 
 	private void handleCommitSearch(GitDatabaseQueryService queryService,
-			String repo, String query, HttpServletResponse resp)
-			throws IOException {
+			String repo, String query, int offset, int limit,
+			HttpServletResponse resp) throws IOException {
 		List<GitCommitIndex> results = queryService
-				.searchCommitMessages(repo, query);
+				.searchCommitMessages(repo, query, offset, limit);
 
 		JsonObject response = new JsonObject();
 		response.addProperty("query", query); //$NON-NLS-1$
@@ -147,10 +156,10 @@ public class SearchResource extends HttpServlet {
 	}
 
 	private void handlePathSearch(GitDatabaseQueryService queryService,
-			String repo, String query, HttpServletResponse resp)
-			throws IOException {
+			String repo, String query, int offset, int limit,
+			HttpServletResponse resp) throws IOException {
 		List<GitCommitIndex> results = queryService
-				.searchByChangedPath(repo, query);
+				.searchByChangedPath(repo, query, offset, limit);
 
 		JsonObject response = new JsonObject();
 		response.addProperty("query", query); //$NON-NLS-1$
@@ -174,42 +183,45 @@ public class SearchResource extends HttpServlet {
 	}
 
 	private void handleTypeSearch(GitDatabaseQueryService queryService,
-			String repo, String query, HttpServletResponse resp)
-			throws IOException {
-		List<JavaBlobIndex> results = queryService.searchByType(repo, query);
-		writeJavaBlobResponse(results, repo, query, resp);
+			String repo, String query, int offset, int limit,
+			HttpServletResponse resp) throws IOException {
+		List<JavaBlobIndex> results = queryService.searchByType(repo,
+				query, offset, limit);
+		writeJavaBlobResponse(results, repo, query, offset, limit, resp);
 	}
 
 	private void handleSymbolSearch(GitDatabaseQueryService queryService,
-			String repo, String query, HttpServletResponse resp)
-			throws IOException {
+			String repo, String query, int offset, int limit,
+			HttpServletResponse resp) throws IOException {
 		List<JavaBlobIndex> results = queryService.searchBySymbol(repo,
-				query);
-		writeJavaBlobResponse(results, repo, query, resp);
+				query, offset, limit);
+		writeJavaBlobResponse(results, repo, query, offset, limit, resp);
 	}
 
 	private void handleHierarchySearch(GitDatabaseQueryService queryService,
-			String repo, String query, HttpServletResponse resp)
-			throws IOException {
+			String repo, String query, int offset, int limit,
+			HttpServletResponse resp) throws IOException {
 		List<JavaBlobIndex> results = queryService.searchByHierarchy(repo,
-				query);
-		writeJavaBlobResponse(results, repo, query, resp);
+				query, offset, limit);
+		writeJavaBlobResponse(results, repo, query, offset, limit, resp);
 	}
 
 	private void handleSourceSearch(GitDatabaseQueryService queryService,
-			String repo, String query, HttpServletResponse resp)
-			throws IOException {
+			String repo, String query, int offset, int limit,
+			HttpServletResponse resp) throws IOException {
 		List<JavaBlobIndex> results = queryService
-				.searchSourceContent(repo, query);
-		writeJavaBlobResponse(results, repo, query, resp);
+				.searchSourceContent(repo, query, offset, limit);
+		writeJavaBlobResponse(results, repo, query, offset, limit, resp);
 	}
 
 	private void writeJavaBlobResponse(List<JavaBlobIndex> results,
-			String repo, String query, HttpServletResponse resp)
-			throws IOException {
+			String repo, String query, int offset, int limit,
+			HttpServletResponse resp) throws IOException {
 		JsonObject response = new JsonObject();
 		response.addProperty("query", query); //$NON-NLS-1$
 		response.addProperty("repository", repo); //$NON-NLS-1$
+		response.addProperty("offset", offset); //$NON-NLS-1$
+		response.addProperty("limit", limit); //$NON-NLS-1$
 		response.addProperty("totalResults", results.size()); //$NON-NLS-1$
 
 		JsonArray items = new JsonArray();
@@ -239,6 +251,19 @@ public class SearchResource extends HttpServlet {
 		resp.setStatus(HttpServletResponse.SC_OK);
 		try (PrintWriter w = resp.getWriter()) {
 			w.write(gson.toJson(response));
+		}
+	}
+
+	private static int parseIntParam(HttpServletRequest req,
+			String paramName, int defaultValue) {
+		String value = req.getParameter(paramName);
+		if (value == null || value.isEmpty()) {
+			return defaultValue;
+		}
+		try {
+			return Integer.parseInt(value);
+		} catch (NumberFormatException e) {
+			return defaultValue;
 		}
 	}
 }

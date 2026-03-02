@@ -50,6 +50,10 @@ public class JavaBlobIndex {
 	@Column(name = "commit_object_id", length = 40, nullable = false)
 	private String commitObjectId;
 
+	@KeywordField
+	@Column(name = "file_type", length = 32)
+	private String fileType;
+
 	@FullTextField(analyzer = "javaPath")
 	@Column(name = "file_path", length = 1024)
 	private String filePath;
@@ -168,6 +172,25 @@ public class JavaBlobIndex {
 	 */
 	public void setCommitObjectId(String commitObjectId) {
 		this.commitObjectId = commitObjectId;
+	}
+
+	/**
+	 * Get the file type (e.g., "java", "xml", "properties").
+	 *
+	 * @return the fileType
+	 */
+	public String getFileType() {
+		return fileType;
+	}
+
+	/**
+	 * Set the file type.
+	 *
+	 * @param fileType
+	 *            the file type identifier
+	 */
+	public void setFileType(String fileType) {
+		this.fileType = fileType;
 	}
 
 	/**
