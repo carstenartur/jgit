@@ -11,6 +11,8 @@ package org.eclipse.jgit.server.rest;
 
 import java.io.IOException;
 import java.io.PrintWriter;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -129,6 +131,8 @@ public class AdminResource extends HttpServlet {
 		}
 		String token = authHeader
 				.substring("Bearer ".length()).trim(); //$NON-NLS-1$
-		return expectedToken.equals(token);
+		return MessageDigest.isEqual(
+				expectedToken.getBytes(StandardCharsets.UTF_8),
+				token.getBytes(StandardCharsets.UTF_8));
 	}
 }

@@ -127,8 +127,17 @@ public class HibernateConfig {
 		String passwordFile = System.getenv("JGIT_DB_PASSWORD_FILE"); //$NON-NLS-1$
 		if (passwordFile != null && !passwordFile.isEmpty()) {
 			try {
-				return Files.readString(Path.of(passwordFile),
-						StandardCharsets.UTF_8).trim();
+				Path path = Path.of(passwordFile);
+				long size = Files.size(path);
+				if (size > 4096) {
+					LOG.log(Level.WARNING,
+							"Password file too large ({0} bytes), ignoring: {1}", //$NON-NLS-1$
+							new Object[] { Long.toString(size),
+									passwordFile });
+				} else {
+					return Files.readString(path,
+							StandardCharsets.UTF_8).trim();
+				}
 			} catch (IOException e) {
 				LOG.log(Level.WARNING,
 						"Failed to read password from file: {0}", //$NON-NLS-1$
