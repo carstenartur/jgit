@@ -556,12 +556,12 @@ public abstract class AbstractHibernateRepositoryTest {
 		// Verify: TreeWalk can read blob content from DB-backed repo (V1)
 		try (RevWalk rw = new RevWalk(repo)) {
 			RevCommit c1 = rw.parseCommit(commitV1);
-			try (org.eclipse.jgit.treewalk.TreeWalk tw = org.eclipse.jgit.treewalk.TreeWalk
-					.forPath(repo.newObjectReader(), "src/Main.java", //$NON-NLS-1$
-							c1.getTree())) {
+			try (ObjectReader reader = repo.newObjectReader();
+					org.eclipse.jgit.treewalk.TreeWalk tw = org.eclipse.jgit.treewalk.TreeWalk
+							.forPath(reader, "src/Main.java", //$NON-NLS-1$
+									c1.getTree())) {
 				assertNotNull(tw);
-				org.eclipse.jgit.lib.ObjectLoader loader = repo
-						.newObjectReader().open(tw.getObjectId(0));
+				ObjectLoader loader = reader.open(tw.getObjectId(0));
 				String content = new String(loader.getBytes(),
 						StandardCharsets.UTF_8);
 				assertTrue(content.contains("mySpecialVar")); //$NON-NLS-1$
@@ -572,12 +572,12 @@ public abstract class AbstractHibernateRepositoryTest {
 		// Verify: V2 has the renamed variable
 		try (RevWalk rw = new RevWalk(repo)) {
 			RevCommit c2 = rw.parseCommit(commitV2);
-			try (org.eclipse.jgit.treewalk.TreeWalk tw = org.eclipse.jgit.treewalk.TreeWalk
-					.forPath(repo.newObjectReader(), "src/Main.java", //$NON-NLS-1$
-							c2.getTree())) {
+			try (ObjectReader reader = repo.newObjectReader();
+					org.eclipse.jgit.treewalk.TreeWalk tw = org.eclipse.jgit.treewalk.TreeWalk
+							.forPath(reader, "src/Main.java", //$NON-NLS-1$
+									c2.getTree())) {
 				assertNotNull(tw);
-				org.eclipse.jgit.lib.ObjectLoader loader = repo
-						.newObjectReader().open(tw.getObjectId(0));
+				ObjectLoader loader = reader.open(tw.getObjectId(0));
 				String content = new String(loader.getBytes(),
 						StandardCharsets.UTF_8);
 				assertFalse(content.contains("mySpecialVar")); //$NON-NLS-1$
@@ -597,6 +597,12 @@ public abstract class AbstractHibernateRepositoryTest {
 				testRepoName, "mySpecialVar"); //$NON-NLS-1$
 		assertEquals(1, v1Results.size());
 		assertEquals(commitV1.name(), v1Results.get(0).getObjectId());
+
+		// Verify: blob content search finds commits containing the variable
+		List<GitCommitIndex> blobHits = qs.searchBlobContent(
+				testRepoName, "mySpecialVar", repo); //$NON-NLS-1$
+		assertEquals(1, blobHits.size());
+		assertEquals(commitV1.name(), blobHits.get(0).getObjectId());
 	}
 
 	@Test
@@ -672,25 +678,27 @@ public abstract class AbstractHibernateRepositoryTest {
 
 	/**
 	 * Create a commit containing a single file.
+	 * <p>
+	 * Paths containing {@code '/'} are handled by creating proper nested
+	 * subtrees (e.g. {@code "src/Main.java"} produces a {@code src} tree
+	 * containing a {@code Main.java} blob).
 	 *
 	 * @param message
 	 *            the commit message
-	 * @param fileName
-	 *            the file name
+	 * @param filePath
+	 *            the file path (may contain {@code '/'} for subdirectories)
 	 * @param content
 	 *            the file content
 	 * @return the new commit's ObjectId
 	 * @throws Exception
 	 *             on error
 	 */
-	protected ObjectId createCommitWithFile(String message, String fileName,
+	protected ObjectId createCommitWithFile(String message, String filePath,
 			String content) throws Exception {
 		try (ObjectInserter inserter = repo.newObjectInserter()) {
 			ObjectId blobId = inserter.insert(Constants.OBJ_BLOB,
 					content.getBytes(StandardCharsets.UTF_8));
-			TreeFormatter tree = new TreeFormatter();
-			tree.append(fileName, FileMode.REGULAR_FILE, blobId);
-			ObjectId treeId = inserter.insert(tree);
+			ObjectId treeId = buildTree(inserter, filePath, blobId);
 			CommitBuilder cb = new CommitBuilder();
 			cb.setTreeId(treeId);
 			cb.setAuthor(
@@ -702,6 +710,35 @@ public abstract class AbstractHibernateRepositoryTest {
 			inserter.flush();
 			return commitId;
 		}
+	}
+
+	/**
+	 * Build a (possibly nested) tree for a single file path.
+	 *
+	 * @param inserter
+	 *            the object inserter
+	 * @param filePath
+	 *            the file path
+	 * @param blobId
+	 *            the blob ObjectId
+	 * @return the root tree ObjectId
+	 * @throws Exception
+	 *             on error
+	 */
+	private static ObjectId buildTree(ObjectInserter inserter,
+			String filePath, ObjectId blobId) throws Exception {
+		int slash = filePath.indexOf('/');
+		if (slash < 0) {
+			TreeFormatter tree = new TreeFormatter();
+			tree.append(filePath, FileMode.REGULAR_FILE, blobId);
+			return inserter.insert(tree);
+		}
+		String dir = filePath.substring(0, slash);
+		String rest = filePath.substring(slash + 1);
+		ObjectId childTreeId = buildTree(inserter, rest, blobId);
+		TreeFormatter tree = new TreeFormatter();
+		tree.append(dir, FileMode.TREE, childTreeId);
+		return inserter.insert(tree);
 	}
 
 	/**

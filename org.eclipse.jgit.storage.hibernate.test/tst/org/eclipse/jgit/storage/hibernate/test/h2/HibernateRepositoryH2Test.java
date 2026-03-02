@@ -653,15 +653,13 @@ public class HibernateRepositoryH2Test {
 		}
 	}
 
-	private ObjectId createCommitWithFile(String message, String fileName,
+	private ObjectId createCommitWithFile(String message, String filePath,
 			String content) throws Exception {
 		try (ObjectInserter inserter = repo.newObjectInserter()) {
 			ObjectId blobId = inserter.insert(Constants.OBJ_BLOB,
 					content.getBytes(StandardCharsets.UTF_8));
 
-			TreeFormatter tree = new TreeFormatter();
-			tree.append(fileName, FileMode.REGULAR_FILE, blobId);
-			ObjectId treeId = inserter.insert(tree);
+			ObjectId treeId = buildTree(inserter, filePath, blobId);
 
 			CommitBuilder commit = new CommitBuilder();
 			commit.setTreeId(treeId);
@@ -675,6 +673,22 @@ public class HibernateRepositoryH2Test {
 			inserter.flush();
 			return commitId;
 		}
+	}
+
+	private static ObjectId buildTree(ObjectInserter inserter,
+			String filePath, ObjectId blobId) throws Exception {
+		int slash = filePath.indexOf('/');
+		if (slash < 0) {
+			TreeFormatter tree = new TreeFormatter();
+			tree.append(filePath, FileMode.REGULAR_FILE, blobId);
+			return inserter.insert(tree);
+		}
+		String dir = filePath.substring(0, slash);
+		String rest = filePath.substring(slash + 1);
+		ObjectId childTreeId = buildTree(inserter, rest, blobId);
+		TreeFormatter tree = new TreeFormatter();
+		tree.append(dir, FileMode.TREE, childTreeId);
+		return inserter.insert(tree);
 	}
 
 	private void updateRef(String name, ObjectId id) throws Exception {

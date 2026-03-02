@@ -49,13 +49,34 @@ public class ElasticsearchConfig {
 	 *            configuration
 	 */
 	public static void applySearchProperties(Properties props) {
-		String backend = getEnvOrDefault("JGIT_SEARCH_BACKEND", //$NON-NLS-1$
-				"lucene"); //$NON-NLS-1$
+		applySearchProperties(props, System.getenv("JGIT_SEARCH_BACKEND"), //$NON-NLS-1$
+				System.getenv("JGIT_SEARCH_HOSTS")); //$NON-NLS-1$
+	}
+
+	/**
+	 * Apply Hibernate Search configuration properties from explicit values.
+	 * <p>
+	 * This overload is useful for unit testing without requiring environment
+	 * variable manipulation.
+	 *
+	 * @param props
+	 *            the Hibernate properties to augment with search backend
+	 *            configuration
+	 * @param backendType
+	 *            the backend type ({@code "lucene"} or
+	 *            {@code "elasticsearch"}), may be {@code null}
+	 * @param hosts
+	 *            the Elasticsearch host URL(s), may be {@code null}
+	 */
+	public static void applySearchProperties(Properties props,
+			String backendType, String hosts) {
+		String backend = (backendType != null && !backendType.isEmpty())
+				? backendType
+				: "lucene"; //$NON-NLS-1$
 
 		if ("elasticsearch".equalsIgnoreCase(backend)) { //$NON-NLS-1$
 			props.put("hibernate.search.backend.type", //$NON-NLS-1$
 					"elasticsearch"); //$NON-NLS-1$
-			String hosts = System.getenv("JGIT_SEARCH_HOSTS"); //$NON-NLS-1$
 			if (hosts != null && !hosts.isEmpty()) {
 				props.put("hibernate.search.backend.hosts", hosts); //$NON-NLS-1$
 			}
@@ -64,8 +85,4 @@ public class ElasticsearchConfig {
 		// already defaults to lucene + local-heap, so no action needed.
 	}
 
-	private static String getEnvOrDefault(String name, String defaultValue) {
-		String val = System.getenv(name);
-		return (val != null && !val.isEmpty()) ? val : defaultValue;
-	}
 }
