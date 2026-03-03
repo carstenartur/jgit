@@ -120,7 +120,7 @@ public class EndToEndH2Test {
 		assertTrue("Should contain UP status", //$NON-NLS-1$
 				body.contains("\"status\":\"UP\"")); //$NON-NLS-1$
 		assertTrue("Should indicate database connected", //$NON-NLS-1$
-				body.contains("\"database\":\"connected\"")); //$NON-NLS-1$
+				body.contains("\"database\":{\"status\":\"UP\"}")); //$NON-NLS-1$
 	}
 
 	/**

@@ -116,14 +116,14 @@ public class BlobIndexerTest {
 	}
 
 	@Test
-	public void testIndexSkipsNonJavaFiles() throws Exception {
+	public void testIndexNonJavaFiles() throws Exception {
 		ObjectId commitId = createCommitWithFile("Add readme",
 				"README.md", "# Hello World");
 
 		BlobIndexer indexer = new BlobIndexer(provider.getSessionFactory(),
 				testRepoName);
 		int count = indexer.indexCommitBlobs(repo, commitId);
-		assertEquals("Should skip non-Java files", 0, count);
+		assertEquals("Should index non-Java text files", 1, count);
 	}
 
 	@Test
