@@ -74,6 +74,7 @@ public class JGitServerWebAppTest {
 				"org.hibernate.dialect.H2Dialect"); //$NON-NLS-1$
 		props.put("hibernate.hbm2ddl.auto", "create-drop"); //$NON-NLS-1$ //$NON-NLS-2$
 		props.put("hibernate.show_sql", "false"); //$NON-NLS-1$ //$NON-NLS-2$
+		props.put("hibernate.search.backend.directory.type", "local-heap"); //$NON-NLS-1$ //$NON-NLS-2$
 
 		provider = new HibernateSessionFactoryProvider(props);
 		resolver = new HibernateRepositoryResolver(provider);
@@ -137,7 +138,7 @@ public class JGitServerWebAppTest {
 		assertEquals(200, conn.getResponseCode());
 		String body = readBody(conn);
 		assertTrue(body.contains("\"status\":\"UP\"")); //$NON-NLS-1$
-		assertTrue(body.contains("\"database\":\"connected\"")); //$NON-NLS-1$
+		assertTrue(body.contains("\"database\":{\"status\":\"UP\"}")); //$NON-NLS-1$
 	}
 
 	/**

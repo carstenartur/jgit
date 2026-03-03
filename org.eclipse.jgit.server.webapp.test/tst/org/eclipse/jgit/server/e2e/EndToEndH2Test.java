@@ -83,6 +83,7 @@ public class EndToEndH2Test {
 				"org.hibernate.dialect.H2Dialect"); //$NON-NLS-1$
 		props.put("hibernate.hbm2ddl.auto", "create"); //$NON-NLS-1$ //$NON-NLS-2$
 		props.put("hibernate.show_sql", "false"); //$NON-NLS-1$ //$NON-NLS-2$
+		props.put("hibernate.search.backend.directory.type", "local-heap"); //$NON-NLS-1$ //$NON-NLS-2$
 
 		server = new JGitServerApplication();
 		server.start(props, 0, 0);
@@ -119,7 +120,7 @@ public class EndToEndH2Test {
 		assertTrue("Should contain UP status", //$NON-NLS-1$
 				body.contains("\"status\":\"UP\"")); //$NON-NLS-1$
 		assertTrue("Should indicate database connected", //$NON-NLS-1$
-				body.contains("\"database\":\"connected\"")); //$NON-NLS-1$
+				body.contains("\"database\":{\"status\":\"UP\"}")); //$NON-NLS-1$
 	}
 
 	/**
