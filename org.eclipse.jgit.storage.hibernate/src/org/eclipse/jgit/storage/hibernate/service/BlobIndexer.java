@@ -81,8 +81,8 @@ public class BlobIndexer {
 	 */
 	public BlobIndexer(SessionFactory sessionFactory,
 			String repositoryName) {
-		this(sessionFactory, repositoryName, DEFAULT_MAX_BLOB_SIZE,
-				DEFAULT_BATCH_SIZE);
+		this(sessionFactory, repositoryName, getMaxBlobSizeFromEnv(),
+				getBatchSizeFromEnv());
 	}
 
 	/**
@@ -135,22 +135,31 @@ public class BlobIndexer {
 					TreeWalk tw = new TreeWalk(reader)) {
 				tw.addTree(commit.getTree());
 				tw.setRecursive(true);
+				boolean allFileTypes = isAllFileTypesEnabled();
+				boolean trackHistory = isFilePathHistoryEnabled();
+				Set<String> skipExts = getSkipExtensions();
 				while (tw.next()) {
 					String path = tw.getPathString();
-					// Track file path history for every file
-					FilePathHistory fph = new FilePathHistory();
-					fph.setRepositoryName(repositoryName);
-					fph.setCommitObjectId(commitId.name());
-					fph.setFilePath(path);
-					fph.setBlobObjectId(tw.getObjectId(0).name());
-					fph.setFileType(detectFileType(path));
-					fph.setCommitTime(commitDate);
-					historyBatch.add(fph);
-					if (historyBatch.size() >= batchSize) {
-						persistHistoryBatch(historyBatch);
-						historyBatch.clear();
+					// Track file path history if enabled
+					if (trackHistory) {
+						FilePathHistory fph = new FilePathHistory();
+						fph.setRepositoryName(repositoryName);
+						fph.setCommitObjectId(commitId.name());
+						fph.setFilePath(path);
+						fph.setBlobObjectId(tw.getObjectId(0).name());
+						fph.setFileType(detectFileType(path));
+						fph.setCommitTime(commitDate);
+						historyBatch.add(fph);
+						if (historyBatch.size() >= batchSize) {
+							persistHistoryBatch(historyBatch);
+							historyBatch.clear();
+						}
 					}
-					if (isBinaryExtension(path)) {
+					if (isBinaryExtension(path, skipExts)) {
+						continue;
+					}
+					if (!allFileTypes
+							&& !path.endsWith(".java")) { //$NON-NLS-1$
 						continue;
 					}
 					ObjectLoader loader = reader.open(tw.getObjectId(0));
@@ -269,13 +278,60 @@ public class BlobIndexer {
 		return false;
 	}
 
-	private static boolean isBinaryExtension(String path) {
+	private static boolean isBinaryExtension(String path,
+			Set<String> skipExts) {
 		int dot = path.lastIndexOf('.');
 		if (dot >= 0) {
-			return BINARY_EXTENSIONS
+			return skipExts
 					.contains(path.substring(dot).toLowerCase());
 		}
 		return false;
+	}
+
+	private static int getMaxBlobSizeFromEnv() {
+		String val = System.getenv("JGIT_INDEX_MAX_BLOB_SIZE"); //$NON-NLS-1$
+		if (val != null) {
+			try {
+				return Integer.parseInt(val);
+			} catch (NumberFormatException e) {
+				// ignore
+			}
+		}
+		return DEFAULT_MAX_BLOB_SIZE;
+	}
+
+	private static int getBatchSizeFromEnv() {
+		String val = System.getenv("JGIT_INDEX_BATCH_SIZE"); //$NON-NLS-1$
+		if (val != null) {
+			try {
+				return Integer.parseInt(val);
+			} catch (NumberFormatException e) {
+				// ignore
+			}
+		}
+		return DEFAULT_BATCH_SIZE;
+	}
+
+	private static boolean isAllFileTypesEnabled() {
+		String val = System.getenv("JGIT_INDEX_ALL_FILE_TYPES"); //$NON-NLS-1$
+		return val == null || !"false".equalsIgnoreCase(val); //$NON-NLS-1$
+	}
+
+	private static boolean isFilePathHistoryEnabled() {
+		String val = System.getenv("JGIT_INDEX_FILE_PATH_HISTORY"); //$NON-NLS-1$
+		return val == null || !"false".equalsIgnoreCase(val); //$NON-NLS-1$
+	}
+
+	private static Set<String> getSkipExtensions() {
+		String val = System.getenv("JGIT_INDEX_SKIP_EXTENSIONS"); //$NON-NLS-1$
+		if (val != null && !val.isEmpty()) {
+			Set<String> exts = new HashSet<>();
+			for (String ext : val.split(",")) { //$NON-NLS-1$
+				exts.add(ext.trim().toLowerCase());
+			}
+			return exts;
+		}
+		return BINARY_EXTENSIONS;
 	}
 
 	private JavaBlobIndex toBlobIndex(BlobIndexData data, String filePath,

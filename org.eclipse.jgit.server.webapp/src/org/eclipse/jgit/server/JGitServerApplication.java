@@ -158,6 +158,36 @@ public class JGitServerApplication {
 				"/*"); //$NON-NLS-1$
 
 		contexts.addHandler(restContext);
+
+		// Also serve /api/v1/* for forward-compatible API versioning
+		ServletContextHandler v1Context = new ServletContextHandler(
+				ServletContextHandler.SESSIONS);
+		v1Context.setContextPath("/api/v1"); //$NON-NLS-1$
+		v1Context.setVirtualHosts(List.of("@rest")); //$NON-NLS-1$
+		if (corsOrigins != null && !corsOrigins.isEmpty()) {
+			v1Context.addFilter(
+					new FilterHolder(new CorsFilter(corsOrigins)),
+					"/*", //$NON-NLS-1$
+					java.util.EnumSet
+							.allOf(jakarta.servlet.DispatcherType.class));
+		}
+		v1Context.addServlet(new ServletHolder("health", //$NON-NLS-1$
+				new HealthResource(sessionFactoryProvider)), "/health"); //$NON-NLS-1$
+		v1Context.addServlet(
+				new ServletHolder("repos", //$NON-NLS-1$
+						new RepositoryResource(sessionFactoryProvider,
+								repositoryResolver)),
+				"/repos/*"); //$NON-NLS-1$
+		v1Context.addServlet(
+				new ServletHolder("search", //$NON-NLS-1$
+						new SearchResource(sessionFactoryProvider)),
+				"/search/*"); //$NON-NLS-1$
+		v1Context.addServlet(
+				new ServletHolder("analytics", //$NON-NLS-1$
+						new AnalyticsResource(sessionFactoryProvider)),
+				"/analytics/*"); //$NON-NLS-1$
+		contexts.addHandler(v1Context);
+
 		contexts.addHandler(gitContext);
 		GzipHandler gzip = new GzipHandler();
 		gzip.setHandler(contexts);
@@ -166,6 +196,8 @@ public class JGitServerApplication {
 		server.start();
 		LOG.log(Level.INFO, "JGit Server started"); //$NON-NLS-1$
 		LOG.log(Level.INFO, "  REST API: http://0.0.0.0:{0}/api/", //$NON-NLS-1$
+				Integer.toString(restPort));
+		LOG.log(Level.INFO, "  REST API v1: http://0.0.0.0:{0}/api/v1/", //$NON-NLS-1$
 				Integer.toString(restPort));
 		LOG.log(Level.INFO,
 				"  Git HTTP: http://0.0.0.0:{0}/git/", //$NON-NLS-1$
