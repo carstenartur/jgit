@@ -14,17 +14,20 @@ import java.util.Properties;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
+import org.eclipse.jetty.ee10.servlet.FilterHolder;
 import org.eclipse.jetty.ee10.servlet.ServletContextHandler;
 import org.eclipse.jetty.ee10.servlet.ServletHolder;
 import org.eclipse.jetty.server.Server;
 import org.eclipse.jetty.server.ServerConnector;
 import org.eclipse.jetty.server.handler.ContextHandlerCollection;
+import org.eclipse.jetty.server.handler.gzip.GzipHandler;
 import org.eclipse.jgit.http.server.GitServlet;
 import org.eclipse.jgit.lib.Repository;
 import org.eclipse.jgit.server.config.HibernateConfig;
 import org.eclipse.jgit.server.config.RepositoryManagerConfig;
 import org.eclipse.jgit.server.resolver.HibernateRepositoryResolver;
 import org.eclipse.jgit.server.rest.AnalyticsResource;
+import org.eclipse.jgit.server.rest.CorsFilter;
 import org.eclipse.jgit.server.rest.HealthResource;
 import org.eclipse.jgit.server.rest.RepositoryResource;
 import org.eclipse.jgit.server.rest.SearchResource;
@@ -118,6 +121,16 @@ public class JGitServerApplication {
 		restContext.setContextPath("/api"); //$NON-NLS-1$
 		restContext.setVirtualHosts(List.of("@rest")); //$NON-NLS-1$
 
+		// CORS filter
+		String corsOrigins = System.getenv("JGIT_CORS_ORIGINS"); //$NON-NLS-1$
+		if (corsOrigins != null && !corsOrigins.isEmpty()) {
+			restContext.addFilter(
+					new FilterHolder(new CorsFilter(corsOrigins)),
+					"/*", //$NON-NLS-1$
+					java.util.EnumSet
+							.allOf(jakarta.servlet.DispatcherType.class));
+		}
+
 		restContext.addServlet(new ServletHolder("health", //$NON-NLS-1$
 				new HealthResource(sessionFactoryProvider)), "/health"); //$NON-NLS-1$
 		restContext.addServlet(
@@ -146,7 +159,9 @@ public class JGitServerApplication {
 
 		contexts.addHandler(restContext);
 		contexts.addHandler(gitContext);
-		server.setHandler(contexts);
+		GzipHandler gzip = new GzipHandler();
+		gzip.setHandler(contexts);
+		server.setHandler(gzip);
 
 		server.start();
 		LOG.log(Level.INFO, "JGit Server started"); //$NON-NLS-1$
@@ -230,7 +245,9 @@ public class JGitServerApplication {
 
 		contexts.addHandler(restContext);
 		contexts.addHandler(gitContext);
-		server.setHandler(contexts);
+		GzipHandler gzip = new GzipHandler();
+		gzip.setHandler(contexts);
+		server.setHandler(gzip);
 
 		server.start();
 		LOG.log(Level.INFO, "JGit Server started (test mode)"); //$NON-NLS-1$

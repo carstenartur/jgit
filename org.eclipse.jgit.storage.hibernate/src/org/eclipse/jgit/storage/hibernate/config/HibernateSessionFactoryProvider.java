@@ -62,6 +62,35 @@ public class HibernateSessionFactoryProvider {
 			cfg.setProperty("hibernate.search.backend.directory.root", //$NON-NLS-1$
 					root);
 		}
+		// Default to HikariCP connection pool if not explicitly configured
+		if (!properties.containsKey("hibernate.connection.provider_class")) { //$NON-NLS-1$
+			cfg.setProperty("hibernate.connection.provider_class", //$NON-NLS-1$
+					"org.hibernate.hikaricp.internal.HikariCPConnectionProvider"); //$NON-NLS-1$
+		}
+		if (!properties.containsKey("hibernate.hikari.minimumIdle")) { //$NON-NLS-1$
+			cfg.setProperty("hibernate.hikari.minimumIdle", "5"); //$NON-NLS-1$ //$NON-NLS-2$
+		}
+		if (!properties.containsKey("hibernate.hikari.maximumPoolSize")) { //$NON-NLS-1$
+			cfg.setProperty("hibernate.hikari.maximumPoolSize", "20"); //$NON-NLS-1$ //$NON-NLS-2$
+		}
+		if (!properties.containsKey("hibernate.hikari.idleTimeout")) { //$NON-NLS-1$
+			cfg.setProperty("hibernate.hikari.idleTimeout", "300000"); //$NON-NLS-1$ //$NON-NLS-2$
+		}
+		if (!properties.containsKey("hibernate.hikari.connectionTimeout")) { //$NON-NLS-1$
+			cfg.setProperty("hibernate.hikari.connectionTimeout", "20000"); //$NON-NLS-1$ //$NON-NLS-2$
+		}
+		if (!properties.containsKey("hibernate.hikari.maxLifetime")) { //$NON-NLS-1$
+			cfg.setProperty("hibernate.hikari.maxLifetime", "1200000"); //$NON-NLS-1$ //$NON-NLS-2$
+		}
+		// Default to second-level cache with Caffeine/JCache
+		if (!properties.containsKey("hibernate.cache.use_second_level_cache")) { //$NON-NLS-1$
+			cfg.setProperty("hibernate.cache.use_second_level_cache", //$NON-NLS-1$
+					"true"); //$NON-NLS-1$
+		}
+		if (!properties.containsKey("hibernate.cache.region.factory_class")) { //$NON-NLS-1$
+			cfg.setProperty("hibernate.cache.region.factory_class", //$NON-NLS-1$
+					"jcache"); //$NON-NLS-1$
+		}
 		if (!properties
 				.containsKey("hibernate.search.backend.analysis.configurer")) { //$NON-NLS-1$
 			cfg.setProperty("hibernate.search.backend.analysis.configurer", //$NON-NLS-1$

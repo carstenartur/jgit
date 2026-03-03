@@ -11,6 +11,8 @@ package org.eclipse.jgit.storage.hibernate.entity;
 
 import java.time.Instant;
 
+import org.hibernate.annotations.Cache;
+import org.hibernate.annotations.CacheConcurrencyStrategy;
 import org.hibernate.annotations.Nationalized;
 import org.hibernate.search.mapper.pojo.mapping.definition.annotation.FullTextField;
 import org.hibernate.search.mapper.pojo.mapping.definition.annotation.GenericField;
@@ -37,6 +39,7 @@ import jakarta.persistence.Table;
 		@Index(name = "idx_commit_oid", columnList = "object_id", unique = true),
 		@Index(name = "idx_commit_repo_time", columnList = "repository_name, commit_time"),
 		@Index(name = "idx_commit_author", columnList = "author_name, author_email") })
+@Cache(usage = CacheConcurrencyStrategy.READ_ONLY)
 public class GitCommitIndex {
 
 	@Id

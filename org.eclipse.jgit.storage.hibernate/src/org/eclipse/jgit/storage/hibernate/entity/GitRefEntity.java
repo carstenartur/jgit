@@ -11,6 +11,8 @@ package org.eclipse.jgit.storage.hibernate.entity;
 
 import java.time.Instant;
 
+import org.hibernate.annotations.Cache;
+import org.hibernate.annotations.CacheConcurrencyStrategy;
 import org.hibernate.annotations.Nationalized;
 
 import jakarta.persistence.Column;
@@ -28,6 +30,7 @@ import jakarta.persistence.Version;
 @Entity
 @Table(name = "git_refs", uniqueConstraints = {
 		@UniqueConstraint(columnNames = { "repository_name", "ref_name" }) })
+@Cache(usage = CacheConcurrencyStrategy.READ_WRITE)
 public class GitRefEntity {
 
 	@Id
