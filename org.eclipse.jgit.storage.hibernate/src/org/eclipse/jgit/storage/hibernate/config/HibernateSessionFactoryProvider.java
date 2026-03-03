@@ -16,6 +16,7 @@ import org.eclipse.jgit.storage.hibernate.entity.GitObjectEntity;
 import org.eclipse.jgit.storage.hibernate.entity.GitPackEntity;
 import org.eclipse.jgit.storage.hibernate.entity.GitRefEntity;
 import org.eclipse.jgit.storage.hibernate.entity.GitReflogEntity;
+import org.eclipse.jgit.storage.hibernate.entity.FilePathHistory;
 import org.eclipse.jgit.storage.hibernate.entity.JavaBlobIndex;
 import org.hibernate.SessionFactory;
 import org.hibernate.cfg.Configuration;
@@ -102,6 +103,7 @@ public class HibernateSessionFactoryProvider {
 		cfg.addAnnotatedClass(GitReflogEntity.class);
 		cfg.addAnnotatedClass(GitCommitIndex.class);
 		cfg.addAnnotatedClass(JavaBlobIndex.class);
+		cfg.addAnnotatedClass(FilePathHistory.class);
 		this.sessionFactory = cfg.buildSessionFactory();
 	}
 

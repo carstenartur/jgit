@@ -24,6 +24,7 @@ import org.eclipse.jgit.lib.ObjectReader;
 import org.eclipse.jgit.lib.Repository;
 import org.eclipse.jgit.revwalk.RevCommit;
 import org.eclipse.jgit.revwalk.RevWalk;
+import org.eclipse.jgit.storage.hibernate.entity.FilePathHistory;
 import org.eclipse.jgit.storage.hibernate.entity.JavaBlobIndex;
 import org.eclipse.jgit.storage.hibernate.search.BlobIndexData;
 import org.eclipse.jgit.storage.hibernate.search.FileTypeStrategy;
@@ -122,6 +123,7 @@ public class BlobIndexer {
 				new Object[] { commitId.name(), repositoryName });
 		Set<String> alreadyIndexed = loadIndexedBlobOids();
 		List<JavaBlobIndex> batch = new ArrayList<>();
+		List<FilePathHistory> historyBatch = new ArrayList<>();
 		int count = 0;
 		try (RevWalk rw = new RevWalk(repo)) {
 			RevCommit commit = rw.parseCommit(commitId);
@@ -135,6 +137,19 @@ public class BlobIndexer {
 				tw.setRecursive(true);
 				while (tw.next()) {
 					String path = tw.getPathString();
+					// Track file path history for every file
+					FilePathHistory fph = new FilePathHistory();
+					fph.setRepositoryName(repositoryName);
+					fph.setCommitObjectId(commitId.name());
+					fph.setFilePath(path);
+					fph.setBlobObjectId(tw.getObjectId(0).name());
+					fph.setFileType(detectFileType(path));
+					fph.setCommitTime(commitDate);
+					historyBatch.add(fph);
+					if (historyBatch.size() >= batchSize) {
+						persistHistoryBatch(historyBatch);
+						historyBatch.clear();
+					}
 					if (isBinaryExtension(path)) {
 						continue;
 					}
@@ -179,10 +194,31 @@ public class BlobIndexer {
 		if (!batch.isEmpty()) {
 			persistBatch(batch);
 		}
+		if (!historyBatch.isEmpty()) {
+			persistHistoryBatch(historyBatch);
+		}
 		LOG.log(Level.INFO,
 				"Completed blob indexing for commit {0}: {1} blobs indexed", //$NON-NLS-1$
 				new Object[] { commitId.name(), Integer.valueOf(count) });
 		return count;
+	}
+
+	private void persistHistoryBatch(List<FilePathHistory> entities) {
+		try (Session session = sessionFactory.openSession()) {
+			session.beginTransaction();
+			for (FilePathHistory fph : entities) {
+				session.persist(fph);
+			}
+			session.getTransaction().commit();
+		}
+	}
+
+	private static String detectFileType(String path) {
+		int dot = path.lastIndexOf('.');
+		if (dot >= 0) {
+			return path.substring(dot + 1).toLowerCase();
+		}
+		return "unknown"; //$NON-NLS-1$
 	}
 
 	private void persistBatch(List<JavaBlobIndex> entities) {
