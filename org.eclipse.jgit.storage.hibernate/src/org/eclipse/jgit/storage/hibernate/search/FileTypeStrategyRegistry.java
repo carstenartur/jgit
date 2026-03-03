@@ -14,7 +14,11 @@ import java.util.Map;
 
 import org.eclipse.jgit.storage.hibernate.search.strategies.GenericTextFileStrategy;
 import org.eclipse.jgit.storage.hibernate.search.strategies.JavaFileStrategy;
+import org.eclipse.jgit.storage.hibernate.search.strategies.ManifestFileStrategy;
+import org.eclipse.jgit.storage.hibernate.search.strategies.PluginXmlFileStrategy;
+import org.eclipse.jgit.storage.hibernate.search.strategies.PomFileStrategy;
 import org.eclipse.jgit.storage.hibernate.search.strategies.PropertiesFileStrategy;
+import org.eclipse.jgit.storage.hibernate.search.strategies.XmlFileStrategy;
 
 /**
  * Registry that maps file paths to the appropriate
@@ -42,6 +46,10 @@ public class FileTypeStrategyRegistry {
 	public FileTypeStrategyRegistry() {
 		register(new JavaFileStrategy());
 		register(new PropertiesFileStrategy());
+		register(new PomFileStrategy());
+		register(new XmlFileStrategy());
+		register(new ManifestFileStrategy());
+		register(new PluginXmlFileStrategy());
 	}
 
 	/**

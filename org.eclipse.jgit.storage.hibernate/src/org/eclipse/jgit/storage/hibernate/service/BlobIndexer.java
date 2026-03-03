@@ -25,6 +25,9 @@ import org.eclipse.jgit.lib.Repository;
 import org.eclipse.jgit.revwalk.RevCommit;
 import org.eclipse.jgit.revwalk.RevWalk;
 import org.eclipse.jgit.storage.hibernate.entity.JavaBlobIndex;
+import org.eclipse.jgit.storage.hibernate.search.BlobIndexData;
+import org.eclipse.jgit.storage.hibernate.search.FileTypeStrategy;
+import org.eclipse.jgit.storage.hibernate.search.FileTypeStrategyRegistry;
 import org.eclipse.jgit.treewalk.TreeWalk;
 import org.hibernate.Session;
 import org.hibernate.SessionFactory;
@@ -52,11 +55,16 @@ public class BlobIndexer {
 
 	private static final int BINARY_CHECK_SIZE = 8192;
 
+	private static final Set<String> BINARY_EXTENSIONS = Set.of(
+			".class", ".jar", ".png", ".jpg", ".jpeg", ".gif", //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$ //$NON-NLS-5$ //$NON-NLS-6$
+			".zip", ".tar", ".gz", ".bz2", ".pdf", ".so", //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$ //$NON-NLS-5$ //$NON-NLS-6$
+			".dll", ".exe", ".ico", ".war", ".ear"); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$ //$NON-NLS-5$
+
 	private final SessionFactory sessionFactory;
 
 	private final String repositoryName;
 
-	private final JavaBlobExtractor extractor;
+	private final FileTypeStrategyRegistry strategyRegistry;
 
 	private final int maxBlobSize;
 
@@ -92,7 +100,7 @@ public class BlobIndexer {
 			String repositoryName, int maxBlobSize, int batchSize) {
 		this.sessionFactory = sessionFactory;
 		this.repositoryName = repositoryName;
-		this.extractor = new JavaBlobExtractor();
+		this.strategyRegistry = new FileTypeStrategyRegistry();
 		this.maxBlobSize = maxBlobSize;
 		this.batchSize = batchSize;
 	}
@@ -127,7 +135,7 @@ public class BlobIndexer {
 				tw.setRecursive(true);
 				while (tw.next()) {
 					String path = tw.getPathString();
-					if (!path.endsWith(".java")) { //$NON-NLS-1$
+					if (isBinaryExtension(path)) {
 						continue;
 					}
 					ObjectLoader loader = reader.open(tw.getObjectId(0));
@@ -151,10 +159,13 @@ public class BlobIndexer {
 					}
 					String source = new String(bytes,
 							StandardCharsets.UTF_8);
-					JavaBlobIndex idx = extractor.extract(source, path,
-							repositoryName, blobOid, commitId.name());
-					idx.setCommitAuthor(commitAuthor);
-					idx.setCommitDate(commitDate);
+					FileTypeStrategy strategy = strategyRegistry
+							.getStrategy(path);
+					BlobIndexData blobData = strategy.extract(source,
+							path);
+					JavaBlobIndex idx = toBlobIndex(blobData, path,
+							blobOid, commitId.name(), commitAuthor,
+							commitDate);
 					batch.add(idx);
 					alreadyIndexed.add(blobOid);
 					count++;
@@ -220,5 +231,48 @@ public class BlobIndexer {
 			}
 		}
 		return false;
+	}
+
+	private static boolean isBinaryExtension(String path) {
+		int dot = path.lastIndexOf('.');
+		if (dot >= 0) {
+			return BINARY_EXTENSIONS
+					.contains(path.substring(dot).toLowerCase());
+		}
+		return false;
+	}
+
+	private JavaBlobIndex toBlobIndex(BlobIndexData data, String filePath,
+			String blobOid, String commitOid, String commitAuthor,
+			java.time.Instant commitDate) {
+		JavaBlobIndex idx = new JavaBlobIndex();
+		idx.setRepositoryName(repositoryName);
+		idx.setBlobObjectId(blobOid);
+		idx.setCommitObjectId(commitOid);
+		idx.setFileType(data.getFileType());
+		idx.setFilePath(filePath);
+		idx.setPackageName(data.getPackageOrNamespace());
+		idx.setDeclaredTypes(data.getDeclaredTypes());
+		idx.setFullyQualifiedNames(data.getFullyQualifiedNames());
+		idx.setDeclaredMethods(data.getDeclaredMethods());
+		idx.setDeclaredFields(data.getDeclaredFields());
+		idx.setExtendsTypes(data.getExtendsTypes());
+		idx.setImplementsTypes(data.getImplementsTypes());
+		idx.setImportStatements(data.getImportStatements());
+		idx.setSourceSnippet(data.getSourceSnippet());
+		idx.setProjectName(data.getProjectName());
+		idx.setSimpleClassName(data.getSimpleClassName());
+		idx.setTypeKind(data.getTypeKind());
+		idx.setVisibility(data.getVisibility());
+		idx.setAnnotations(data.getAnnotations());
+		idx.setLineCount(data.getLineCount());
+		idx.setTypeDocumentation(data.getTypeDocumentation());
+		idx.setMethodSignatures(data.getMethodSignatures());
+		idx.setReferencedTypes(data.getReferencedTypes());
+		idx.setStringLiterals(data.getStringLiterals());
+		idx.setHasMainMethod(data.isHasMainMethod());
+		idx.setCommitAuthor(commitAuthor);
+		idx.setCommitDate(commitDate);
+		return idx;
 	}
 }
