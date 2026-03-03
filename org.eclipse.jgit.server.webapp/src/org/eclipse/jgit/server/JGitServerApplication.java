@@ -387,7 +387,18 @@ public class JGitServerApplication {
 	private static ReceivePackFactory<HttpServletRequest> createReceivePackFactory() {
 		return (HttpServletRequest req, Repository db) -> {
 			ReceivePack rp = new ReceivePack(db);
-			rp.setMaxCommandBytes(0);
+			// Default 3 MiB limit is too low for repositories with many refs.
+			// Allow override via env var; default to 50 MiB.
+			long maxCmdBytes = 50L << 20;
+			String envVal = System.getenv("JGIT_RECEIVE_MAX_COMMAND_BYTES"); //$NON-NLS-1$
+			if (envVal != null && !envVal.isEmpty()) {
+				try {
+					maxCmdBytes = Long.parseLong(envVal);
+				} catch (NumberFormatException e) {
+					// keep default
+				}
+			}
+			rp.setMaxCommandBytes(maxCmdBytes);
 			return rp;
 		};
 	}
