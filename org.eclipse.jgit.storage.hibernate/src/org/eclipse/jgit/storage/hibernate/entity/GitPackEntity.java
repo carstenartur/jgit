@@ -11,6 +11,9 @@ package org.eclipse.jgit.storage.hibernate.entity;
 
 import java.time.Instant;
 
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
+
 import jakarta.persistence.Basic;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -19,7 +22,6 @@ import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Index;
-import jakarta.persistence.Lob;
 import jakarta.persistence.Table;
 
 /**
@@ -44,9 +46,9 @@ public class GitPackEntity {
 	@Column(name = "pack_extension", nullable = false)
 	private String packExtension;
 
-	@Lob
+	@JdbcTypeCode(SqlTypes.LONG32VARBINARY)
 	@Basic(fetch = FetchType.LAZY)
-	@Column(name = "data", nullable = false, length = Integer.MAX_VALUE)
+	@Column(name = "data", nullable = false)
 	private byte[] data;
 
 	@Column(name = "file_size", nullable = false)
