@@ -54,7 +54,7 @@ public class FilePathHistory {
 
 	@FullTextField(analyzer = "javaPath")
 	@Nationalized
-	@Column(name = "file_path", length = 1024, nullable = false)
+	@Column(name = "file_path", length = 500, nullable = false)
 	private String filePath;
 
 	@KeywordField
