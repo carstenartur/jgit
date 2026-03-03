@@ -385,7 +385,11 @@ public class JGitServerApplication {
 	 *         authentication
 	 */
 	private static ReceivePackFactory<HttpServletRequest> createReceivePackFactory() {
-		return (HttpServletRequest req, Repository db) -> new ReceivePack(db);
+		return (HttpServletRequest req, Repository db) -> {
+			ReceivePack rp = new ReceivePack(db);
+			rp.setMaxCommandBytes(0);
+			return rp;
+		};
 	}
 
 	private static GitServlet createGitServlet(
