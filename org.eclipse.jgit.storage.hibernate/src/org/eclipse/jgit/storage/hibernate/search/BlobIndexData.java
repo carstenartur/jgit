@@ -50,6 +50,20 @@ public class BlobIndexData {
 
 	private int lineCount;
 
+	private String typeDocumentation;
+
+	private String methodSignatures;
+
+	private String referencedTypes;
+
+	private String stringLiterals;
+
+	private boolean hasMainMethod;
+
+	private String commitAuthor;
+
+	private java.time.Instant commitDate;
+
 	/**
 	 * Get the file type identifier.
 	 *
@@ -352,5 +366,138 @@ public class BlobIndexData {
 	 */
 	public void setLineCount(int lineCount) {
 		this.lineCount = lineCount;
+	}
+
+	/**
+	 * Get the type documentation (Javadoc on primary type).
+	 *
+	 * @return the type documentation
+	 */
+	public String getTypeDocumentation() {
+		return typeDocumentation;
+	}
+
+	/**
+	 * Set the type documentation.
+	 *
+	 * @param typeDocumentation
+	 *            the type documentation, truncated to 2000 chars
+	 */
+	public void setTypeDocumentation(String typeDocumentation) {
+		this.typeDocumentation = typeDocumentation;
+	}
+
+	/**
+	 * Get the method signatures.
+	 *
+	 * @return the method signatures
+	 */
+	public String getMethodSignatures() {
+		return methodSignatures;
+	}
+
+	/**
+	 * Set the method signatures.
+	 *
+	 * @param methodSignatures
+	 *            the method signatures
+	 */
+	public void setMethodSignatures(String methodSignatures) {
+		this.methodSignatures = methodSignatures;
+	}
+
+	/**
+	 * Get the referenced types.
+	 *
+	 * @return the referenced types
+	 */
+	public String getReferencedTypes() {
+		return referencedTypes;
+	}
+
+	/**
+	 * Set the referenced types.
+	 *
+	 * @param referencedTypes
+	 *            the referenced types
+	 */
+	public void setReferencedTypes(String referencedTypes) {
+		this.referencedTypes = referencedTypes;
+	}
+
+	/**
+	 * Get the string literals.
+	 *
+	 * @return the string literals
+	 */
+	public String getStringLiterals() {
+		return stringLiterals;
+	}
+
+	/**
+	 * Set the string literals.
+	 *
+	 * @param stringLiterals
+	 *            the string literals
+	 */
+	public void setStringLiterals(String stringLiterals) {
+		this.stringLiterals = stringLiterals;
+	}
+
+	/**
+	 * Check if a main method was detected.
+	 *
+	 * @return true if a main method was found
+	 */
+	public boolean isHasMainMethod() {
+		return hasMainMethod;
+	}
+
+	/**
+	 * Set whether a main method was detected.
+	 *
+	 * @param hasMainMethod
+	 *            true if a main method was found
+	 */
+	public void setHasMainMethod(boolean hasMainMethod) {
+		this.hasMainMethod = hasMainMethod;
+	}
+
+	/**
+	 * Get the commit author name.
+	 *
+	 * @return the commit author
+	 */
+	public String getCommitAuthor() {
+		return commitAuthor;
+	}
+
+	/**
+	 * Set the commit author name.
+	 *
+	 * @param commitAuthor
+	 *            the commit author
+	 */
+	public void setCommitAuthor(String commitAuthor) {
+		this.commitAuthor = commitAuthor;
+	}
+
+	/**
+	 * Get the commit date.
+	 *
+	 * @return the commit date
+	 */
+	public java.time.Instant getCommitDate() {
+		return commitDate;
+	}
+
+	/**
+	 * Set the commit date.
+	 *
+	 * @param commitDate
+	 *            the commit date
+	 */
+	public void setCommitDate(java.time.Instant commitDate) {
+		this.commitDate = commitDate;
 	}
 }

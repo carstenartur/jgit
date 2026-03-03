@@ -656,6 +656,93 @@ public class GitDatabaseQueryService {
 	}
 
 	/**
+	 * Search blobs by type documentation (Javadoc).
+	 *
+	 * @param repo
+	 *            the repository name
+	 * @param query
+	 *            the documentation search query
+	 * @param offset
+	 *            pagination offset
+	 * @param limit
+	 *            maximum results
+	 * @return matching blob index entities
+	 */
+	public List<JavaBlobIndex> searchByDocumentation(String repo,
+			String query, int offset, int limit) {
+		try (Session session = sessionFactory.openSession()) {
+			SearchSession searchSession = Search.session(session);
+			return searchSession.search(JavaBlobIndex.class)
+					.where(f -> f.bool()
+							.must(f.match()
+									.field("repositoryName") //$NON-NLS-1$
+									.matching(repo))
+							.must(f.match()
+									.field("typeDocumentation") //$NON-NLS-1$
+									.matching(query)))
+					.fetchHits(offset, limit);
+		}
+	}
+
+	/**
+	 * Search blobs by referenced type.
+	 *
+	 * @param repo
+	 *            the repository name
+	 * @param query
+	 *            the referenced type search query
+	 * @param offset
+	 *            pagination offset
+	 * @param limit
+	 *            maximum results
+	 * @return matching blob index entities
+	 */
+	public List<JavaBlobIndex> searchByReferencedType(String repo,
+			String query, int offset, int limit) {
+		try (Session session = sessionFactory.openSession()) {
+			SearchSession searchSession = Search.session(session);
+			return searchSession.search(JavaBlobIndex.class)
+					.where(f -> f.bool()
+							.must(f.match()
+									.field("repositoryName") //$NON-NLS-1$
+									.matching(repo))
+							.must(f.match()
+									.field("referencedTypes") //$NON-NLS-1$
+									.matching(query)))
+					.fetchHits(offset, limit);
+		}
+	}
+
+	/**
+	 * Search blobs by string literals.
+	 *
+	 * @param repo
+	 *            the repository name
+	 * @param query
+	 *            the string literal search query
+	 * @param offset
+	 *            pagination offset
+	 * @param limit
+	 *            maximum results
+	 * @return matching blob index entities
+	 */
+	public List<JavaBlobIndex> searchByStringLiteral(String repo,
+			String query, int offset, int limit) {
+		try (Session session = sessionFactory.openSession()) {
+			SearchSession searchSession = Search.session(session);
+			return searchSession.search(JavaBlobIndex.class)
+					.where(f -> f.bool()
+							.must(f.match()
+									.field("repositoryName") //$NON-NLS-1$
+									.matching(repo))
+							.must(f.match()
+									.field("stringLiterals") //$NON-NLS-1$
+									.matching(query)))
+					.fetchHits(offset, limit);
+		}
+	}
+
+	/**
 	 * Author statistics record.
 	 */
 	public static class AuthorStats {

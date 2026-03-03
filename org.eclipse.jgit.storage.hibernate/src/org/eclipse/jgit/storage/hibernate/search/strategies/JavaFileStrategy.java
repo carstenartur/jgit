@@ -88,6 +88,11 @@ public class JavaFileStrategy implements FileTypeStrategy {
 			data.setAnnotations(visitor.getAnnotations());
 			data.setTypeKind(visitor.getTypeKind());
 			data.setVisibility(visitor.getVisibility());
+			data.setTypeDocumentation(visitor.getTypeDocumentation());
+			data.setMethodSignatures(visitor.getMethodSignatures());
+			data.setReferencedTypes(visitor.getReferencedTypes());
+			data.setStringLiterals(visitor.getStringLiterals());
+			data.setHasMainMethod(visitor.hasMainMethod());
 		} catch (Exception e) {
 			// Graceful degradation: return partial results on parse errors
 			LOG.log(Level.WARNING,

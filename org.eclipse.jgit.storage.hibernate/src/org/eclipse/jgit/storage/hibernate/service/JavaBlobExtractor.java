@@ -102,6 +102,11 @@ public class JavaBlobExtractor {
 			idx.setSimpleClassName(extractSimpleClassName(filePath));
 			idx.setProjectName(extractProjectName(filePath));
 			idx.setLineCount(countLines(source));
+			idx.setTypeDocumentation(visitor.getTypeDocumentation());
+			idx.setMethodSignatures(visitor.getMethodSignatures());
+			idx.setReferencedTypes(visitor.getReferencedTypes());
+			idx.setStringLiterals(visitor.getStringLiterals());
+			idx.setHasMainMethod(visitor.hasMainMethod());
 		} catch (Exception e) {
 			// Graceful degradation: return partial results on parse errors
 			LOG.log(Level.WARNING,

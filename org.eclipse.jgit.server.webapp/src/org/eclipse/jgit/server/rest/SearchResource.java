@@ -154,6 +154,15 @@ public class SearchResource extends HttpServlet {
 			} else if (pathInfo.startsWith("/annotations")) { //$NON-NLS-1$
 				handleAnnotationSearch(queryService, repo, query, offset,
 						limit, resp);
+			} else if (pathInfo.startsWith("/docs")) { //$NON-NLS-1$
+				handleSearch(queryService, repo, query, offset, limit,
+						resp, "docs"); //$NON-NLS-1$
+			} else if (pathInfo.startsWith("/references")) { //$NON-NLS-1$
+				handleSearch(queryService, repo, query, offset, limit,
+						resp, "references"); //$NON-NLS-1$
+			} else if (pathInfo.startsWith("/strings")) { //$NON-NLS-1$
+				handleSearch(queryService, repo, query, offset, limit,
+						resp, "strings"); //$NON-NLS-1$
 			} else {
 				// Default: search commits
 				handleCommitSearch(queryService, repo, query, offset,
@@ -270,6 +279,30 @@ public class SearchResource extends HttpServlet {
 			HttpServletResponse resp) throws IOException {
 		List<JavaBlobIndex> results = queryService
 				.searchSourceContent(repo, query, offset, limit);
+		writeJavaBlobResponse(results, repo, query, offset, limit, resp);
+	}
+
+	private void handleSearch(GitDatabaseQueryService service,
+			String repo, String query, int offset, int limit,
+			HttpServletResponse resp, String type) throws IOException {
+		List<JavaBlobIndex> results;
+		switch (type) {
+		case "docs": //$NON-NLS-1$
+			results = service.searchByDocumentation(repo, query,
+					offset, limit);
+			break;
+		case "references": //$NON-NLS-1$
+			results = service.searchByReferencedType(repo, query,
+					offset, limit);
+			break;
+		case "strings": //$NON-NLS-1$
+			results = service.searchByStringLiteral(repo, query,
+					offset, limit);
+			break;
+		default:
+			results = List.of();
+			break;
+		}
 		writeJavaBlobResponse(results, repo, query, offset, limit, resp);
 	}
 

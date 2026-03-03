@@ -9,6 +9,8 @@
  */
 package org.eclipse.jgit.storage.hibernate.entity;
 
+import java.time.Instant;
+
 import org.hibernate.annotations.Nationalized;
 import org.hibernate.search.mapper.pojo.mapping.definition.annotation.FullTextField;
 import org.hibernate.search.mapper.pojo.mapping.definition.annotation.GenericField;
@@ -137,6 +139,39 @@ public class JavaBlobIndex {
 	@GenericField
 	@Column(name = "line_count")
 	private int lineCount;
+
+	@FullTextField(analyzer = "commitMessage")
+	@Nationalized
+	@Column(name = "type_documentation", length = 2000)
+	private String typeDocumentation;
+
+	@FullTextField(analyzer = "javaIdentifier")
+	@Nationalized
+	@Column(name = "method_signatures", length = 65535)
+	private String methodSignatures;
+
+	@FullTextField(analyzer = "dotQualifiedName")
+	@Nationalized
+	@Column(name = "referenced_types", length = 65535)
+	private String referencedTypes;
+
+	@FullTextField(analyzer = "genericContent")
+	@Nationalized
+	@Column(name = "string_literals", length = 65535)
+	private String stringLiterals;
+
+	@GenericField
+	@Column(name = "has_main_method")
+	private boolean hasMainMethod;
+
+	@KeywordField
+	@Nationalized
+	@Column(name = "commit_author")
+	private String commitAuthor;
+
+	@GenericField
+	@Column(name = "commit_date")
+	private Instant commitDate;
 
 	/** Default constructor for JPA. */
 	public JavaBlobIndex() {
@@ -539,5 +574,138 @@ public class JavaBlobIndex {
 	 */
 	public void setLineCount(int lineCount) {
 		this.lineCount = lineCount;
+	}
+
+	/**
+	 * Get the type documentation (Javadoc on primary type).
+	 *
+	 * @return the typeDocumentation
+	 */
+	public String getTypeDocumentation() {
+		return typeDocumentation;
+	}
+
+	/**
+	 * Set the type documentation.
+	 *
+	 * @param typeDocumentation
+	 *            the type documentation, truncated to 2000 chars
+	 */
+	public void setTypeDocumentation(String typeDocumentation) {
+		this.typeDocumentation = typeDocumentation;
+	}
+
+	/**
+	 * Get the newline-separated method signatures.
+	 *
+	 * @return the methodSignatures
+	 */
+	public String getMethodSignatures() {
+		return methodSignatures;
+	}
+
+	/**
+	 * Set the newline-separated method signatures.
+	 *
+	 * @param methodSignatures
+	 *            newline-separated method signatures
+	 */
+	public void setMethodSignatures(String methodSignatures) {
+		this.methodSignatures = methodSignatures;
+	}
+
+	/**
+	 * Get the newline-separated referenced types.
+	 *
+	 * @return the referencedTypes
+	 */
+	public String getReferencedTypes() {
+		return referencedTypes;
+	}
+
+	/**
+	 * Set the newline-separated referenced types.
+	 *
+	 * @param referencedTypes
+	 *            newline-separated referenced type names
+	 */
+	public void setReferencedTypes(String referencedTypes) {
+		this.referencedTypes = referencedTypes;
+	}
+
+	/**
+	 * Get the newline-separated string literals.
+	 *
+	 * @return the stringLiterals
+	 */
+	public String getStringLiterals() {
+		return stringLiterals;
+	}
+
+	/**
+	 * Set the newline-separated string literals.
+	 *
+	 * @param stringLiterals
+	 *            newline-separated string literal values
+	 */
+	public void setStringLiterals(String stringLiterals) {
+		this.stringLiterals = stringLiterals;
+	}
+
+	/**
+	 * Check if a main method was detected.
+	 *
+	 * @return true if a main method was found
+	 */
+	public boolean isHasMainMethod() {
+		return hasMainMethod;
+	}
+
+	/**
+	 * Set whether a main method was detected.
+	 *
+	 * @param hasMainMethod
+	 *            true if a main method was found
+	 */
+	public void setHasMainMethod(boolean hasMainMethod) {
+		this.hasMainMethod = hasMainMethod;
+	}
+
+	/**
+	 * Get the commit author name.
+	 *
+	 * @return the commitAuthor
+	 */
+	public String getCommitAuthor() {
+		return commitAuthor;
+	}
+
+	/**
+	 * Set the commit author name.
+	 *
+	 * @param commitAuthor
+	 *            the commit author
+	 */
+	public void setCommitAuthor(String commitAuthor) {
+		this.commitAuthor = commitAuthor;
+	}
+
+	/**
+	 * Get the commit date.
+	 *
+	 * @return the commitDate
+	 */
+	public Instant getCommitDate() {
+		return commitDate;
+	}
+
+	/**
+	 * Set the commit date.
+	 *
+	 * @param commitDate
+	 *            the commit date
+	 */
+	public void setCommitDate(Instant commitDate) {
+		this.commitDate = commitDate;
 	}
 }

@@ -117,6 +117,10 @@ public class BlobIndexer {
 		int count = 0;
 		try (RevWalk rw = new RevWalk(repo)) {
 			RevCommit commit = rw.parseCommit(commitId);
+			String commitAuthor = commit.getAuthorIdent() != null
+					? commit.getAuthorIdent().getName() : null;
+			java.time.Instant commitDate = commit.getAuthorIdent() != null
+					? commit.getAuthorIdent().getWhenAsInstant() : null;
 			try (ObjectReader reader = repo.newObjectReader();
 					TreeWalk tw = new TreeWalk(reader)) {
 				tw.addTree(commit.getTree());
@@ -149,6 +153,8 @@ public class BlobIndexer {
 							StandardCharsets.UTF_8);
 					JavaBlobIndex idx = extractor.extract(source, path,
 							repositoryName, blobOid, commitId.name());
+					idx.setCommitAuthor(commitAuthor);
+					idx.setCommitDate(commitDate);
 					batch.add(idx);
 					alreadyIndexed.add(blobOid);
 					count++;

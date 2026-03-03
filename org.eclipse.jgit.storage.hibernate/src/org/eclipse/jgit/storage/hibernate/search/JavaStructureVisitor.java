@@ -15,6 +15,7 @@ import java.util.Map;
 
 import org.eclipse.jdt.core.dom.ASTVisitor;
 import org.eclipse.jdt.core.dom.AnnotationTypeDeclaration;
+import org.eclipse.jdt.core.dom.CatchClause;
 import org.eclipse.jdt.core.dom.EnumConstantDeclaration;
 import org.eclipse.jdt.core.dom.EnumDeclaration;
 import org.eclipse.jdt.core.dom.FieldDeclaration;
@@ -25,6 +26,8 @@ import org.eclipse.jdt.core.dom.NormalAnnotation;
 import org.eclipse.jdt.core.dom.ParameterizedType;
 import org.eclipse.jdt.core.dom.SimpleType;
 import org.eclipse.jdt.core.dom.SingleMemberAnnotation;
+import org.eclipse.jdt.core.dom.SingleVariableDeclaration;
+import org.eclipse.jdt.core.dom.StringLiteral;
 import org.eclipse.jdt.core.dom.Type;
 import org.eclipse.jdt.core.dom.TypeDeclaration;
 import org.eclipse.jdt.core.dom.VariableDeclarationFragment;
@@ -39,6 +42,10 @@ import org.eclipse.jdt.core.dom.VariableDeclarationFragment;
  * </p>
  */
 public class JavaStructureVisitor extends ASTVisitor {
+
+	private static final int MAX_DOC_LENGTH = 2000;
+
+	private static final int MIN_STRING_LITERAL_LENGTH = 3;
 
 	private final Map<String, String> importMap;
 
@@ -57,6 +64,16 @@ public class JavaStructureVisitor extends ASTVisitor {
 	private final List<String> interfaces = new ArrayList<>();
 
 	private final List<String> annotationNames = new ArrayList<>();
+
+	private final List<String> methodSignatures = new ArrayList<>();
+
+	private final List<String> referencedTypes = new ArrayList<>();
+
+	private final List<String> stringLiterals = new ArrayList<>();
+
+	private boolean hasMainMethod;
+
+	private String typeDocumentation = ""; //$NON-NLS-1$
 
 	private String typeKind = ""; //$NON-NLS-1$
 
@@ -94,6 +111,11 @@ public class JavaStructureVisitor extends ASTVisitor {
 		if (typeKind.isEmpty()) {
 			typeKind = node.isInterface() ? "interface" : "class"; //$NON-NLS-1$ //$NON-NLS-2$
 			visibility = extractVisibility(node.getModifiers());
+		}
+		// Capture Javadoc of the primary type
+		if (typeDocumentation.isEmpty() && node.getJavadoc() != null) {
+			typeDocumentation = truncateDoc(
+					node.getJavadoc().toString(), MAX_DOC_LENGTH);
 		}
 		return true;
 	}
@@ -157,7 +179,42 @@ public class JavaStructureVisitor extends ASTVisitor {
 
 	@Override
 	public boolean visit(MethodDeclaration node) {
-		methods.add(node.getName().getIdentifier());
+		String methodName = node.getName().getIdentifier();
+		methods.add(methodName);
+
+		// Build method signature: methodName(ParamType1,ParamType2)
+		StringBuilder sig = new StringBuilder();
+		sig.append(methodName);
+		sig.append('(');
+		boolean first = true;
+		for (Object param : node.parameters()) {
+			if (param instanceof SingleVariableDeclaration svd) {
+				if (!first) {
+					sig.append(',');
+				}
+				String typeName = resolveTypeName(svd.getType());
+				sig.append(typeName);
+				referencedTypes.add(typeName);
+				first = false;
+			}
+		}
+		sig.append(')');
+		methodSignatures.add(sig.toString());
+
+		// Return type
+		Type returnType = node.getReturnType2();
+		if (returnType != null) {
+			referencedTypes.add(resolveTypeName(returnType));
+		}
+
+		// Detect main method
+		if ("main".equals(methodName) //$NON-NLS-1$
+				&& Modifier.isPublic(node.getModifiers())
+				&& Modifier.isStatic(node.getModifiers())
+				&& node.parameters().size() == 1) {
+			hasMainMethod = true;
+		}
+
 		return true;
 	}
 
@@ -167,6 +224,29 @@ public class JavaStructureVisitor extends ASTVisitor {
 			if (fragment instanceof VariableDeclarationFragment vdf) {
 				fields.add(vdf.getName().getIdentifier());
 			}
+		}
+		// Collect field type as referenced type
+		if (node.getType() != null) {
+			referencedTypes.add(resolveTypeName(node.getType()));
+		}
+		return true;
+	}
+
+	@Override
+	public boolean visit(CatchClause node) {
+		if (node.getException() != null
+				&& node.getException().getType() != null) {
+			referencedTypes.add(
+					resolveTypeName(node.getException().getType()));
+		}
+		return true;
+	}
+
+	@Override
+	public boolean visit(StringLiteral node) {
+		String value = node.getLiteralValue();
+		if (value != null && value.length() > MIN_STRING_LITERAL_LENGTH) {
+			stringLiterals.add(value);
 		}
 		return true;
 	}
@@ -301,5 +381,62 @@ public class JavaStructureVisitor extends ASTVisitor {
 			sb.append(" final"); //$NON-NLS-1$
 		}
 		return sb.toString().trim();
+	}
+
+	private static String truncateDoc(String doc, int maxLen) {
+		if (doc == null) {
+			return ""; //$NON-NLS-1$
+		}
+		// Strip leading/trailing whitespace and comment markers
+		String clean = doc.replaceAll("/\\*\\*|\\*/|\\*", "").trim(); //$NON-NLS-1$ //$NON-NLS-2$
+		if (clean.length() > maxLen) {
+			return clean.substring(0, maxLen);
+		}
+		return clean;
+	}
+
+	/**
+	 * Get the newline-separated list of method signatures.
+	 *
+	 * @return method signatures
+	 */
+	public String getMethodSignatures() {
+		return String.join("\n", methodSignatures); //$NON-NLS-1$
+	}
+
+	/**
+	 * Get the newline-separated list of referenced types.
+	 *
+	 * @return referenced types
+	 */
+	public String getReferencedTypes() {
+		return String.join("\n", referencedTypes); //$NON-NLS-1$
+	}
+
+	/**
+	 * Get the newline-separated list of string literals.
+	 *
+	 * @return string literals
+	 */
+	public String getStringLiterals() {
+		return String.join("\n", stringLiterals); //$NON-NLS-1$
+	}
+
+	/**
+	 * Check if a main method was detected.
+	 *
+	 * @return true if a main method was found
+	 */
+	public boolean hasMainMethod() {
+		return hasMainMethod;
+	}
+
+	/**
+	 * Get the type documentation (Javadoc).
+	 *
+	 * @return the type documentation
+	 */
+	public String getTypeDocumentation() {
+		return typeDocumentation;
 	}
 }
