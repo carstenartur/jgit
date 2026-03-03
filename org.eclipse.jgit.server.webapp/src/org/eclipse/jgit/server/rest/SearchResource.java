@@ -133,8 +133,15 @@ public class SearchResource extends HttpServlet {
 				handlePathSearch(queryService, repo, query, offset,
 						limit, resp);
 			} else if (pathInfo.startsWith("/types")) { //$NON-NLS-1$
-				handleTypeSearch(queryService, repo, query, offset,
-						limit, resp);
+				String module = req.getParameter("module"); //$NON-NLS-1$
+				if (module != null && !module.isEmpty()) {
+					module = sanitizeInput(module);
+					handleTypeSearchWithModule(queryService, repo, query,
+							module, offset, limit, resp);
+				} else {
+					handleTypeSearch(queryService, repo, query, offset,
+							limit, resp);
+				}
 			} else if (pathInfo.startsWith("/symbols")) { //$NON-NLS-1$
 				handleSymbolSearch(queryService, repo, query, offset,
 						limit, resp);
@@ -143,6 +150,9 @@ public class SearchResource extends HttpServlet {
 						limit, resp);
 			} else if (pathInfo.startsWith("/source")) { //$NON-NLS-1$
 				handleSourceSearch(queryService, repo, query, offset,
+						limit, resp);
+			} else if (pathInfo.startsWith("/annotations")) { //$NON-NLS-1$
+				handleAnnotationSearch(queryService, repo, query, offset,
 						limit, resp);
 			} else {
 				// Default: search commits
@@ -218,6 +228,24 @@ public class SearchResource extends HttpServlet {
 			HttpServletResponse resp) throws IOException {
 		List<JavaBlobIndex> results = queryService.searchByType(repo,
 				query, offset, limit);
+		writeJavaBlobResponse(results, repo, query, offset, limit, resp);
+	}
+
+	private void handleTypeSearchWithModule(
+			GitDatabaseQueryService queryService, String repo,
+			String query, String module, int offset, int limit,
+			HttpServletResponse resp) throws IOException {
+		List<JavaBlobIndex> results = queryService
+				.searchByTypeWithModule(repo, query, module, offset, limit);
+		writeJavaBlobResponse(results, repo, query, offset, limit, resp);
+	}
+
+	private void handleAnnotationSearch(
+			GitDatabaseQueryService queryService, String repo,
+			String query, int offset, int limit,
+			HttpServletResponse resp) throws IOException {
+		List<JavaBlobIndex> results = queryService
+				.searchByAnnotation(repo, query, offset, limit);
 		writeJavaBlobResponse(results, repo, query, offset, limit, resp);
 	}
 

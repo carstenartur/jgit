@@ -545,6 +545,76 @@ public class GitDatabaseQueryService {
 	}
 
 	/**
+	 * Search blobs by annotation names.
+	 *
+	 * @param repo
+	 *            the repository name
+	 * @param query
+	 *            the annotation search query
+	 * @param offset
+	 *            pagination offset
+	 * @param limit
+	 *            maximum results
+	 * @return matching blob index entities
+	 */
+	public List<JavaBlobIndex> searchByAnnotation(String repo,
+			String query, int offset, int limit) {
+		try (Session session = sessionFactory.openSession()) {
+			SearchSession searchSession = Search.session(session);
+			return searchSession.search(JavaBlobIndex.class)
+					.where(f -> f.bool()
+							.must(f.match()
+									.field("repositoryName") //$NON-NLS-1$
+									.matching(repo))
+							.must(f.match()
+									.field("annotations") //$NON-NLS-1$
+									.matching(query)))
+					.fetchHits(offset, limit);
+		}
+	}
+
+	/**
+	 * Search blobs by type with optional module/project filter.
+	 *
+	 * @param repo
+	 *            the repository name
+	 * @param query
+	 *            the type search query
+	 * @param module
+	 *            optional module/project name filter (may be null)
+	 * @param offset
+	 *            pagination offset
+	 * @param limit
+	 *            maximum results
+	 * @return matching blob index entities
+	 */
+	public List<JavaBlobIndex> searchByTypeWithModule(String repo,
+			String query, String module, int offset, int limit) {
+		try (Session session = sessionFactory.openSession()) {
+			SearchSession searchSession = Search.session(session);
+			return searchSession.search(JavaBlobIndex.class)
+					.where(f -> {
+						var bool = f.bool()
+								.must(f.match()
+										.field("repositoryName") //$NON-NLS-1$
+										.matching(repo))
+								.must(f.match()
+										.fields("simpleClassName", //$NON-NLS-1$
+												"declaredTypes", //$NON-NLS-1$
+												"fullyQualifiedNames") //$NON-NLS-1$
+										.matching(query));
+						if (module != null && !module.isEmpty()) {
+							bool = bool.must(f.match()
+									.field("projectName") //$NON-NLS-1$
+									.matching(module));
+						}
+						return bool;
+					})
+					.fetchHits(offset, limit);
+		}
+	}
+
+	/**
 	 * Full-text search across Java source snippets.
 	 *
 	 * @param repoName

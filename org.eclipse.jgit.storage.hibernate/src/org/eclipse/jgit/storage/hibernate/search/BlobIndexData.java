@@ -38,6 +38,18 @@ public class BlobIndexData {
 
 	private String sourceSnippet;
 
+	private String projectName;
+
+	private String simpleClassName;
+
+	private String typeKind;
+
+	private String visibility;
+
+	private String annotations;
+
+	private int lineCount;
+
 	/**
 	 * Get the file type identifier.
 	 *
@@ -226,5 +238,119 @@ public class BlobIndexData {
 	 */
 	public void setSourceSnippet(String sourceSnippet) {
 		this.sourceSnippet = sourceSnippet;
+	}
+
+	/**
+	 * Get the project name.
+	 *
+	 * @return the project name
+	 */
+	public String getProjectName() {
+		return projectName;
+	}
+
+	/**
+	 * Set the project name.
+	 *
+	 * @param projectName
+	 *            the project name
+	 */
+	public void setProjectName(String projectName) {
+		this.projectName = projectName;
+	}
+
+	/**
+	 * Get the simple class name.
+	 *
+	 * @return the simple class name
+	 */
+	public String getSimpleClassName() {
+		return simpleClassName;
+	}
+
+	/**
+	 * Set the simple class name.
+	 *
+	 * @param simpleClassName
+	 *            the simple class name
+	 */
+	public void setSimpleClassName(String simpleClassName) {
+		this.simpleClassName = simpleClassName;
+	}
+
+	/**
+	 * Get the type kind (class, interface, enum, record, annotation).
+	 *
+	 * @return the type kind
+	 */
+	public String getTypeKind() {
+		return typeKind;
+	}
+
+	/**
+	 * Set the type kind.
+	 *
+	 * @param typeKind
+	 *            the type kind
+	 */
+	public void setTypeKind(String typeKind) {
+		this.typeKind = typeKind;
+	}
+
+	/**
+	 * Get the visibility (public, package, abstract, final etc.).
+	 *
+	 * @return the visibility
+	 */
+	public String getVisibility() {
+		return visibility;
+	}
+
+	/**
+	 * Set the visibility.
+	 *
+	 * @param visibility
+	 *            the visibility
+	 */
+	public void setVisibility(String visibility) {
+		this.visibility = visibility;
+	}
+
+	/**
+	 * Get the newline-separated annotation names.
+	 *
+	 * @return the annotations
+	 */
+	public String getAnnotations() {
+		return annotations;
+	}
+
+	/**
+	 * Set the annotations.
+	 *
+	 * @param annotations
+	 *            the newline-separated annotation names
+	 */
+	public void setAnnotations(String annotations) {
+		this.annotations = annotations;
+	}
+
+	/**
+	 * Get the line count.
+	 *
+	 * @return the line count
+	 */
+	public int getLineCount() {
+		return lineCount;
+	}
+
+	/**
+	 * Set the line count.
+	 *
+	 * @param lineCount
+	 *            the line count
+	 */
+	public void setLineCount(int lineCount) {
+		this.lineCount = lineCount;
 	}
 }

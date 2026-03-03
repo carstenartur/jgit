@@ -51,6 +51,13 @@ public class JavaFileStrategy implements FileTypeStrategy {
 		data.setFileType("java"); //$NON-NLS-1$
 		data.setSourceSnippet(truncate(source, MAX_SNIPPET_LENGTH));
 
+		// Extract projectName from path
+		data.setProjectName(extractProjectName(filePath));
+		// Extract simpleClassName from path
+		data.setSimpleClassName(extractSimpleClassName(filePath));
+		// Count lines
+		data.setLineCount(countLines(source));
+
 		try {
 			@SuppressWarnings("deprecation")
 			ASTParser parser = ASTParser.newParser(AST.JLS_Latest);
@@ -78,6 +85,9 @@ public class JavaFileStrategy implements FileTypeStrategy {
 			data.setDeclaredFields(visitor.getFields());
 			data.setExtendsTypes(visitor.getSuperTypes());
 			data.setImplementsTypes(visitor.getInterfaces());
+			data.setAnnotations(visitor.getAnnotations());
+			data.setTypeKind(visitor.getTypeKind());
+			data.setVisibility(visitor.getVisibility());
 		} catch (Exception e) {
 			// Graceful degradation: return partial results on parse errors
 			LOG.log(Level.WARNING,
@@ -132,5 +142,44 @@ public class JavaFileStrategy implements FileTypeStrategy {
 			return text;
 		}
 		return text.substring(0, maxLength);
+	}
+
+	private static String extractProjectName(String filePath) {
+		// Try to find project name from path (segment before /src/ or /tst/)
+		int srcIdx = filePath.indexOf("/src/"); //$NON-NLS-1$
+		if (srcIdx < 0) {
+			srcIdx = filePath.indexOf("/tst/"); //$NON-NLS-1$
+		}
+		if (srcIdx > 0) {
+			String beforeSrc = filePath.substring(0, srcIdx);
+			int lastSlash = beforeSrc.lastIndexOf('/');
+			return lastSlash >= 0 ? beforeSrc.substring(lastSlash + 1)
+					: beforeSrc;
+		}
+		return null;
+	}
+
+	private static String extractSimpleClassName(String filePath) {
+		int lastSlash = filePath.lastIndexOf('/');
+		String filename = lastSlash >= 0 ? filePath.substring(lastSlash + 1)
+				: filePath;
+		if (filename.endsWith(".java")) { //$NON-NLS-1$
+			return filename.substring(0,
+					filename.length() - ".java".length()); //$NON-NLS-1$
+		}
+		return filename;
+	}
+
+	private static int countLines(String source) {
+		if (source == null || source.isEmpty()) {
+			return 0;
+		}
+		int count = 1;
+		for (int i = 0; i < source.length(); i++) {
+			if (source.charAt(i) == '\n') {
+				count++;
+			}
+		}
+		return count;
 	}
 }

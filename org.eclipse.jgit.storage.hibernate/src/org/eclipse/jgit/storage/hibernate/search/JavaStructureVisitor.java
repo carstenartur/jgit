@@ -18,9 +18,13 @@ import org.eclipse.jdt.core.dom.AnnotationTypeDeclaration;
 import org.eclipse.jdt.core.dom.EnumConstantDeclaration;
 import org.eclipse.jdt.core.dom.EnumDeclaration;
 import org.eclipse.jdt.core.dom.FieldDeclaration;
+import org.eclipse.jdt.core.dom.MarkerAnnotation;
 import org.eclipse.jdt.core.dom.MethodDeclaration;
+import org.eclipse.jdt.core.dom.Modifier;
+import org.eclipse.jdt.core.dom.NormalAnnotation;
 import org.eclipse.jdt.core.dom.ParameterizedType;
 import org.eclipse.jdt.core.dom.SimpleType;
+import org.eclipse.jdt.core.dom.SingleMemberAnnotation;
 import org.eclipse.jdt.core.dom.Type;
 import org.eclipse.jdt.core.dom.TypeDeclaration;
 import org.eclipse.jdt.core.dom.VariableDeclarationFragment;
@@ -52,6 +56,12 @@ public class JavaStructureVisitor extends ASTVisitor {
 
 	private final List<String> interfaces = new ArrayList<>();
 
+	private final List<String> annotationNames = new ArrayList<>();
+
+	private String typeKind = ""; //$NON-NLS-1$
+
+	private String visibility = ""; //$NON-NLS-1$
+
 	/**
 	 * Create a new visitor.
 	 *
@@ -81,6 +91,10 @@ public class JavaStructureVisitor extends ASTVisitor {
 				interfaces.add(resolveTypeName((Type) iface));
 			}
 		}
+		if (typeKind.isEmpty()) {
+			typeKind = node.isInterface() ? "interface" : "class"; //$NON-NLS-1$ //$NON-NLS-2$
+			visibility = extractVisibility(node.getModifiers());
+		}
 		return true;
 	}
 
@@ -101,6 +115,10 @@ public class JavaStructureVisitor extends ASTVisitor {
 				interfaces.add(resolveTypeName((Type) iface));
 			}
 		}
+		if (typeKind.isEmpty()) {
+			typeKind = "enum"; //$NON-NLS-1$
+			visibility = extractVisibility(node.getModifiers());
+		}
 		return true;
 	}
 
@@ -109,6 +127,31 @@ public class JavaStructureVisitor extends ASTVisitor {
 		String name = node.getName().getIdentifier();
 		types.add(name);
 		fqns.add(buildFQN(name));
+		if (typeKind.isEmpty()) {
+			typeKind = "annotation"; //$NON-NLS-1$
+			visibility = extractVisibility(node.getModifiers());
+		}
+		return true;
+	}
+
+	@Override
+	public boolean visit(MarkerAnnotation node) {
+		annotationNames.add(resolveAnnotationName(
+				node.getTypeName().getFullyQualifiedName()));
+		return true;
+	}
+
+	@Override
+	public boolean visit(NormalAnnotation node) {
+		annotationNames.add(resolveAnnotationName(
+				node.getTypeName().getFullyQualifiedName()));
+		return true;
+	}
+
+	@Override
+	public boolean visit(SingleMemberAnnotation node) {
+		annotationNames.add(resolveAnnotationName(
+				node.getTypeName().getFullyQualifiedName()));
 		return true;
 	}
 
@@ -182,6 +225,33 @@ public class JavaStructureVisitor extends ASTVisitor {
 		return String.join("\n", interfaces); //$NON-NLS-1$
 	}
 
+	/**
+	 * Get the newline-separated list of annotation names.
+	 *
+	 * @return annotations
+	 */
+	public String getAnnotations() {
+		return String.join("\n", annotationNames); //$NON-NLS-1$
+	}
+
+	/**
+	 * Get the type kind (class, interface, enum, annotation).
+	 *
+	 * @return the type kind
+	 */
+	public String getTypeKind() {
+		return typeKind;
+	}
+
+	/**
+	 * Get the visibility modifier string.
+	 *
+	 * @return the visibility
+	 */
+	public String getVisibility() {
+		return visibility;
+	}
+
 	private String buildFQN(String simpleName) {
 		if (packageName.isEmpty()) {
 			return simpleName;
@@ -204,5 +274,32 @@ public class JavaStructureVisitor extends ASTVisitor {
 		}
 		// Best effort: assume same package
 		return buildFQN(simpleName);
+	}
+
+	private String resolveAnnotationName(String simpleName) {
+		if (importMap.containsKey(simpleName)) {
+			return importMap.get(simpleName);
+		}
+		return simpleName;
+	}
+
+	private static String extractVisibility(int modifiers) {
+		StringBuilder sb = new StringBuilder();
+		if (Modifier.isPublic(modifiers)) {
+			sb.append("public"); //$NON-NLS-1$
+		} else if (Modifier.isProtected(modifiers)) {
+			sb.append("protected"); //$NON-NLS-1$
+		} else if (Modifier.isPrivate(modifiers)) {
+			sb.append("private"); //$NON-NLS-1$
+		} else {
+			sb.append("package"); //$NON-NLS-1$
+		}
+		if (Modifier.isAbstract(modifiers)) {
+			sb.append(" abstract"); //$NON-NLS-1$
+		}
+		if (Modifier.isFinal(modifiers)) {
+			sb.append(" final"); //$NON-NLS-1$
+		}
+		return sb.toString().trim();
 	}
 }

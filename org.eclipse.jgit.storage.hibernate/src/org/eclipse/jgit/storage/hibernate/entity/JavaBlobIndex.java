@@ -11,6 +11,7 @@ package org.eclipse.jgit.storage.hibernate.entity;
 
 import org.hibernate.annotations.Nationalized;
 import org.hibernate.search.mapper.pojo.mapping.definition.annotation.FullTextField;
+import org.hibernate.search.mapper.pojo.mapping.definition.annotation.GenericField;
 import org.hibernate.search.mapper.pojo.mapping.definition.annotation.Indexed;
 import org.hibernate.search.mapper.pojo.mapping.definition.annotation.KeywordField;
 
@@ -109,6 +110,33 @@ public class JavaBlobIndex {
 	@Nationalized
 	@Column(name = "source_snippet", length = 65535)
 	private String sourceSnippet;
+
+	@KeywordField
+	@Nationalized
+	@Column(name = "project_name", length = 512)
+	private String projectName;
+
+	@FullTextField(analyzer = "javaIdentifier")
+	@Nationalized
+	@Column(name = "simple_class_name", length = 512)
+	private String simpleClassName;
+
+	@KeywordField
+	@Column(name = "type_kind", length = 32)
+	private String typeKind;
+
+	@KeywordField
+	@Column(name = "visibility", length = 64)
+	private String visibility;
+
+	@FullTextField(analyzer = "dotQualifiedName")
+	@Nationalized
+	@Column(name = "annotations", length = 65535)
+	private String annotations;
+
+	@GenericField
+	@Column(name = "line_count")
+	private int lineCount;
 
 	/** Default constructor for JPA. */
 	public JavaBlobIndex() {
@@ -397,5 +425,119 @@ public class JavaBlobIndex {
 	 */
 	public void setSourceSnippet(String sourceSnippet) {
 		this.sourceSnippet = sourceSnippet;
+	}
+
+	/**
+	 * Get the project name.
+	 *
+	 * @return the projectName
+	 */
+	public String getProjectName() {
+		return projectName;
+	}
+
+	/**
+	 * Set the project name.
+	 *
+	 * @param projectName
+	 *            the project name
+	 */
+	public void setProjectName(String projectName) {
+		this.projectName = projectName;
+	}
+
+	/**
+	 * Get the simple class name.
+	 *
+	 * @return the simpleClassName
+	 */
+	public String getSimpleClassName() {
+		return simpleClassName;
+	}
+
+	/**
+	 * Set the simple class name.
+	 *
+	 * @param simpleClassName
+	 *            the simple class name
+	 */
+	public void setSimpleClassName(String simpleClassName) {
+		this.simpleClassName = simpleClassName;
+	}
+
+	/**
+	 * Get the type kind (class, interface, enum, annotation).
+	 *
+	 * @return the typeKind
+	 */
+	public String getTypeKind() {
+		return typeKind;
+	}
+
+	/**
+	 * Set the type kind.
+	 *
+	 * @param typeKind
+	 *            the type kind
+	 */
+	public void setTypeKind(String typeKind) {
+		this.typeKind = typeKind;
+	}
+
+	/**
+	 * Get the visibility modifier string.
+	 *
+	 * @return the visibility
+	 */
+	public String getVisibility() {
+		return visibility;
+	}
+
+	/**
+	 * Set the visibility modifier string.
+	 *
+	 * @param visibility
+	 *            the visibility
+	 */
+	public void setVisibility(String visibility) {
+		this.visibility = visibility;
+	}
+
+	/**
+	 * Get the newline-separated annotation names.
+	 *
+	 * @return the annotations
+	 */
+	public String getAnnotations() {
+		return annotations;
+	}
+
+	/**
+	 * Set the newline-separated annotation names.
+	 *
+	 * @param annotations
+	 *            newline-separated annotation names
+	 */
+	public void setAnnotations(String annotations) {
+		this.annotations = annotations;
+	}
+
+	/**
+	 * Get the line count.
+	 *
+	 * @return the lineCount
+	 */
+	public int getLineCount() {
+		return lineCount;
+	}
+
+	/**
+	 * Set the line count.
+	 *
+	 * @param lineCount
+	 *            the line count
+	 */
+	public void setLineCount(int lineCount) {
+		this.lineCount = lineCount;
 	}
 }
