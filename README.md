@@ -86,6 +86,10 @@ The CI builds use Maven and run on [Jenkins](https://ci.eclipse.org/jgit/).
     Command-line interface Git commands implemented using JGit
     ("pgm" stands for program).
 
+- __org.eclipse.jgit.server.webapp__
+
+    REST API server for JGit operations, providing web-based access to Git repositories.
+
 - __org.eclipse.jgit.ssh.apache__
 
     Client support for the SSH protocol based on
@@ -94,6 +98,10 @@ The CI builds use Maven and run on [Jenkins](https://ci.eclipse.org/jgit/).
 - __org.eclipse.jgit.ssh.apache.agent__
 
     Optional support for SSH agents for org.eclipse.jgit.ssh.apache.
+
+- __org.eclipse.jgit.storage.hibernate__
+
+    Hibernate-based JGit storage backend for persistent Git object storage.
 
 - __org.eclipse.jgit.ui__
 
@@ -108,7 +116,9 @@ __org.eclipse.jgit.junit.ssh__: Helpers for unit testing
 - __org.eclipse.jgit.lfs.server.test__: Unit tests for org.eclipse.jgit.lfs.server
 - __org.eclipse.jgit.lfs.test__: Unit tests for org.eclipse.jgit.lfs
 - __org.eclipse.jgit.pgm.test__: Unit tests for org.eclipse.jgit.pgm
+- __org.eclipse.jgit.server.webapp.test__: Unit tests for org.eclipse.jgit.server.webapp
 - __org.eclipse.jgit.ssh.apache.test__: Unit tests for org.eclipse.jgit.ssh.apache
+- __org.eclipse.jgit.storage.hibernate.test__: Unit tests for org.eclipse.jgit.storage.hibernate
 - __org.eclipse.jgit.test__: Unit tests for org.eclipse.jgit
 
 ## Warnings/Caveats
