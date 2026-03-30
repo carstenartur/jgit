@@ -38,6 +38,7 @@ import org.eclipse.jgit.internal.JGitText;
 import org.eclipse.jgit.internal.storage.io.CancellableDigestOutputStream;
 import org.eclipse.jgit.internal.storage.midx.MultiPackIndex.MutableEntry;
 import org.eclipse.jgit.lib.ProgressMonitor;
+import org.eclipse.jgit.util.Base64;
 import org.eclipse.jgit.util.NB;
 
 /**
@@ -65,9 +66,11 @@ public class MultiPackIndexWriter {
 	 *            packs)
 	 * @param packNames
 	 *            packNames
+	 * @param checksum
+	 *            checksum of the written midx
 	 */
 	public record Result(long bytesWritten, int objectCount,
-			List<String> packNames) {
+			List<String> packNames, String checksum) {
 	}
 
 	/**
@@ -94,14 +97,14 @@ public class MultiPackIndexWriter {
 			writeHeader(out, chunkHeaders.size(), data.getPackCount());
 			writeChunkLookup(out, chunkHeaders);
 
-			monitor.beginTask("Writing midx chuncks", chunkHeaders.size());
+			monitor.beginTask("Writing midx chunks", chunkHeaders.size());
 			WriteContext ctx = new WriteContext(out, data);
 			for (ChunkHeader chunk : chunkHeaders) {
 				chunk.writerFn.write(ctx);
 				monitor.update(1);
 			}
 			monitor.endTask();
-			writeCheckSum(out);
+			byte[] checksum = writeCheckSum(out);
 			if (expectedSize != out.length()) {
 				throw new IllegalStateException(String.format(
 						JGitText.get().multiPackIndexUnexpectedSize,
@@ -109,7 +112,7 @@ public class MultiPackIndexWriter {
 						Long.valueOf(out.length())));
 			}
 			return new Result(expectedSize, data.getUniqueObjectCount(),
-					data.getPackNames());
+					data.getPackNames(), Base64.encodeBytes(checksum));
 		} catch (InterruptedIOException e) {
 			throw new IOException(JGitText.get().multiPackIndexWritingCancelled,
 					e);
@@ -384,13 +387,16 @@ public class MultiPackIndexWriter {
 	 *
 	 * @param out
 	 *            output stream used to write
+	 * @return the checksum (same value that is written as footer of the file)
 	 * @throws IOException
 	 *             error writing to the output stream
 	 */
-	private void writeCheckSum(CancellableDigestOutputStream out)
+	private byte[] writeCheckSum(CancellableDigestOutputStream out)
 			throws IOException {
-		out.write(out.getDigest());
+		byte[] checksum = out.getDigest();
+		out.write(checksum);
 		out.flush();
+		return checksum;
 	}
 
 	private record OffsetPosition(long offset, int position) {

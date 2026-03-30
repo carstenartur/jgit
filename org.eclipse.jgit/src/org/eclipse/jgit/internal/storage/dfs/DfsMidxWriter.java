@@ -13,6 +13,7 @@ import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toMap;
 import static org.eclipse.jgit.internal.storage.dfs.DfsObjDatabase.PackSource.GC;
 import static org.eclipse.jgit.internal.storage.pack.PackExt.MULTI_PACK_INDEX;
+import static org.eclipse.jgit.internal.storage.pack.PackExt.PACK;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -26,16 +27,20 @@ import java.util.function.Function;
 import org.eclipse.jgit.annotations.Nullable;
 import org.eclipse.jgit.internal.revwalk.RefAdvancerWalk;
 import org.eclipse.jgit.internal.storage.file.PackBitmapIndexBuilder;
+import org.eclipse.jgit.internal.storage.midx.MultiPackIndex;
 import org.eclipse.jgit.internal.storage.midx.MultiPackIndexWriter;
 import org.eclipse.jgit.internal.storage.midx.PackIndexMerger;
+import org.eclipse.jgit.internal.storage.pack.ObjectToPack;
 import org.eclipse.jgit.internal.storage.pack.PackBitmapCalculator;
 import org.eclipse.jgit.internal.storage.pack.PackBitmapIndexWriter;
 import org.eclipse.jgit.lib.Constants;
 import org.eclipse.jgit.lib.NullProgressMonitor;
 import org.eclipse.jgit.lib.ObjectId;
+import org.eclipse.jgit.lib.ObjectIdOwnerMap;
 import org.eclipse.jgit.lib.ProgressMonitor;
 import org.eclipse.jgit.revwalk.RevCommit;
 import org.eclipse.jgit.storage.pack.PackConfig;
+import org.eclipse.jgit.util.Base64;
 
 /**
  * Create a pack with a multipack index, setting the required fields in the
@@ -57,6 +62,9 @@ public class DfsMidxWriter {
 	 *            the packs to cover
 	 * @param base
 	 *            parent of this midx in the chain (if any).
+	 * @param packConfig
+	 *            pack config with parameter to build bitmaps. Null to disable
+	 *            bitmaps.
 	 * @return a pack (uncommitted) with the multipack index of the packs passed
 	 *         as parameter.
 	 * @throws IOException
@@ -64,25 +72,35 @@ public class DfsMidxWriter {
 	 */
 	public static DfsPackDescription writeMidx(ProgressMonitor pm,
 			DfsObjDatabase objdb, List<DfsPackFile> packs,
-			@Nullable DfsPackDescription base)
+			@Nullable DfsPackDescription base, @Nullable PackConfig packConfig)
 			throws IOException {
 		PackIndexMerger.Builder dataBuilder = PackIndexMerger.builder();
 		try (DfsReader ctx = objdb.newReader()) {
 			for (DfsPackFile pack : packs) {
+				if (pack instanceof DfsPackFileMidx) {
+					// asObjectsToPack assumes one packid per pack while
+					// calculating midx offsets. We need to fix that before
+					// accepting midx to build new midx.
+					throw new IOException(
+							"MIDX not supported to build new midx"); //$NON-NLS-1$
+				}
 				dataBuilder.addPack(pack.getPackDescription().getPackName(),
 						pack.getPackIndex(ctx));
 			}
 		}
 
+		PackIndexMerger data = dataBuilder.build();
+		byte[] checksum;
+
 		DfsPackDescription midxPackDesc = objdb.newPack(GC);
 		try (DfsOutputStream out = objdb.writeFile(midxPackDesc,
 				MULTI_PACK_INDEX)) {
 			MultiPackIndexWriter w = new MultiPackIndexWriter();
-			MultiPackIndexWriter.Result result = w.write(pm, out,
-					dataBuilder.build());
+			MultiPackIndexWriter.Result result = w.write(pm, out, data);
 			midxPackDesc.addFileExt(MULTI_PACK_INDEX);
 			midxPackDesc.setFileSize(MULTI_PACK_INDEX, result.bytesWritten());
 			midxPackDesc.setObjectCount(result.objectCount());
+			checksum = Base64.decode(result.checksum());
 
 			Map<String, DfsPackDescription> byName = packs.stream()
 					.map(DfsPackFile::getPackDescription)
@@ -96,28 +114,19 @@ public class DfsMidxWriter {
 			}
 		}
 
+		// TODO(ifrade): At the moment we only support bitmaps on the base
+		if (base == null && packConfig != null) {
+			createAndAttachBitmaps(objdb.getRepository(), midxPackDesc,
+					checksum, data, packs,
+					packConfig);
+		}
+
 		return midxPackDesc;
 	}
 
-	/**
-	 * Calculate bitmps for the midx and add them as a stream in the description
-	 *
-	 * @param db
-	 *            the repository
-	 * @param desc
-	 *            the pack description of the midx
-	 * @param cfg
-	 *            pack config with the parameters for the bitmaps
-	 * @throws IOException
-	 *             an error reading from storage
-	 */
-	public static void createAndAttachBitmaps(DfsRepository db,
-			DfsPackDescription desc, PackConfig cfg) throws IOException {
-
-		DfsObjDatabase objdb = db.getObjectDatabase();
-		// We need a DfsPackFile to reread the contents
-		DfsPackFileMidx midxPack = db.getObjectDatabase().createDfsPackFileMidx(
-				DfsBlockCache.getInstance(), desc, new ArrayList<>());
+	private static void createAndAttachBitmaps(DfsRepository db,
+			DfsPackDescription desc, byte[] checksum, PackIndexMerger data,
+			List<DfsPackFile> packs, PackConfig cfg) throws IOException {
 
 		// TODO(ifrade): Verify we duplicate the behaviour about tags of regular
 		// bitmapping
@@ -128,14 +137,16 @@ public class DfsMidxWriter {
 			return;
 		}
 
-		try (DfsReader ctx = objdb.newReader()) {
+		try (DfsReader ctx = db.getObjectDatabase().newReader()) {
+			ObjectIdOwnerMap<ObjectToPack> byId = new ObjectIdOwnerMap<>();
+			List<ObjectToPack> otps = asObjectsToPack(ctx, data, packs, byId);
+
 			RefAdvancerWalk adv = new RefAdvancerWalk(db,
-					c -> midxPack.hasObject(ctx, c));
+					c -> byId.contains(c));
 			Set<RevCommit> inPack = adv.advance(allHeads);
 
-			byte[] checksum = midxPack.getChecksum(ctx);
 			PackBitmapIndexBuilder writeBitmaps = new PackBitmapIndexBuilder(
-					midxPack.getLocalObjects(ctx));
+					otps);
 			int commitCount = writeBitmaps.getCommits().cardinality();
 
 			PackBitmapCalculator calculator = new PackBitmapCalculator(cfg);
@@ -146,6 +157,32 @@ public class DfsMidxWriter {
 					.getPackBitmapIndexWriter(desc);
 			pbiWriter.write(writeBitmaps, checksum);
 		}
+	}
+
+	private static List<ObjectToPack> asObjectsToPack(DfsReader ctx,
+			PackIndexMerger data, List<DfsPackFile> packs,
+			ObjectIdOwnerMap<ObjectToPack> byId) throws IOException {
+		long[] accPackSize = new long[packs.size()];
+		for (int i = 1; i < packs.size(); i++) {
+			long prevValue = accPackSize[i - 1];
+			accPackSize[i] = prevValue
+					+ packs.get(i - 1).getPackDescription().getFileSize(PACK);
+		}
+
+		List<ObjectToPack> result = new ArrayList<>(
+				data.getUniqueObjectCount());
+		MultiPackIndex.MidxIterator it = data.bySha1Iterator();
+		while (it.hasNext()) {
+			MultiPackIndex.MutableEntry entry = it.next();
+			int objectType = packs.get(entry.getPackId()).getObjectType(ctx,
+					entry.getOffset());
+			ObjectToPack o = new ObjectToPack(entry.getObjectId().toObjectId(),
+					objectType);
+			o.setOffset(accPackSize[entry.getPackId()] + entry.getOffset());
+			result.add(o);
+			byId.add(o);
+		}
+		return result;
 	}
 
 }
