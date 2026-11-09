@@ -50,7 +50,8 @@ class ReftableOutputStream extends OutputStream {
 
 	ReftableOutputStream(OutputStream os, int bs, boolean align) {
 		blockSize = bs;
-		blockBuf = new byte[bs];
+		// Small tables need not allocate their full configured block size.
+		blockBuf = new byte[Math.min(bs, 4 << 10)];
 		alignBlocks = align;
 		out = new CountingOutputStream(os);
 	}
@@ -152,6 +153,7 @@ class ReftableOutputStream extends OutputStream {
 	}
 
 	void beginBlock(byte type) {
+		ensureBytesAvailableInBlockBuf(4);
 		blockType = type;
 		blockStart = cur;
 		cur += 4; // reserve space for 4-byte block header.
