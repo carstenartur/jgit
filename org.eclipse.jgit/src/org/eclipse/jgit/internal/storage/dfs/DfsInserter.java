@@ -24,6 +24,7 @@ import java.io.OutputStream;
 import java.nio.ByteBuffer;
 import java.security.MessageDigest;
 import java.text.MessageFormat;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashSet;
@@ -327,6 +328,8 @@ public class DfsInserter extends ObjectInserter {
 	}
 
 	private class PackStream extends OutputStream {
+		private static final int INITIAL_BUFFER_SIZE = 64 * 1024;
+
 		private final DfsOutputStream out;
 		private final MessageDigest md;
 		final byte[] hdrBuf;
@@ -355,7 +358,7 @@ public class DfsInserter extends ObjectInserter {
 			else if (size < cache.getBlockSize())
 				size = (cache.getBlockSize() / size) * size;
 			blockSize = size;
-			currBuf = new byte[blockSize];
+			currBuf = new byte[Math.min(blockSize, INITIAL_BUFFER_SIZE)];
 		}
 
 		long getCount() {
@@ -399,8 +402,15 @@ public class DfsInserter extends ObjectInserter {
 			while (0 < len) {
 				int n = Math.min(len, currBuf.length - currPtr);
 				if (n == 0) {
-					flushBlock();
-					currBuf = new byte[blockSize];
+					if (currBuf.length < blockSize) {
+						// Grow the first buffer without changing block boundaries.
+						int size = (int) Math.min(blockSize,
+								2L * currBuf.length);
+						currBuf = Arrays.copyOf(currBuf, size);
+					} else {
+						flushBlock();
+						currBuf = new byte[blockSize];
+					}
 					continue;
 				}
 
