@@ -30,6 +30,7 @@ import java.util.List;
 import java.util.Set;
 
 import static org.eclipse.jgit.internal.storage.pack.PackExt.REFTABLE;
+import static org.eclipse.jgit.lib.ConfigConstants.CONFIG_REFTABLE_SECTION;
 
 /**
  * {@link org.eclipse.jgit.lib.BatchRefUpdate} for
@@ -93,6 +94,13 @@ public class DfsReftableBatchRefUpdate extends ReftableBatchRefUpdate {
 
 	private boolean canCompactTopOfStack(ReftableConfig cfg)
 			throws IOException {
+		long defaultMaxBytes = 3L * cfg.getRefBlockSize();
+		long maxBytes = refdb.getRepository().getConfig().getLong(
+				CONFIG_REFTABLE_SECTION, null, "maxCommitCompactionBytes", //$NON-NLS-1$
+				defaultMaxBytes);
+		if (maxBytes <= 0) {
+			return false;
+		}
 		refdb.getLock().lock();
 		try {
 			DfsReftableStack stack = refdb.stack();
@@ -110,8 +118,7 @@ public class DfsReftableBatchRefUpdate extends ReftableBatchRefUpdate {
 			}
 
 			ReftableReader table = readers.get(lastIdx);
-			int bs = cfg.getRefBlockSize();
-			return table.size() <= 3 * bs;
+			return table.size() <= Math.min(maxBytes, defaultMaxBytes);
 		} finally {
 			refdb.getLock().unlock();
 		}
