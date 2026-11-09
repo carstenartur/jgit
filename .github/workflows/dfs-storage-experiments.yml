@@ -25,14 +25,14 @@ jobs:
             commit: 7fdfbfac5fa62640548990ee25284ee6dd4af613
             tree: ac55db731bbd01544e5005b9c3fae8febc7347ac
           - variant: reftable-buffer
-            commit: d09a0820f59e68433d8f1f447c8948917255f1dc
-            tree: ddb46617c0bee58d8d777466b95e274e91038274
+            commit: 94320de8a973e78b827af7c8606e35e981c9c94f
+            tree: c2a7f888630807b16a577ac0db578d4581e57f14
           - variant: pack-buffer
-            commit: 0c4c17027bbb1507d547c1094405cdad25cb6b4d
-            tree: 50e296450ead29af899d8244946ec9a2c2ada8b5
+            commit: 0785f4ee6fe658f0870ec8acd21df583b7f8d386
+            tree: d0d38ae7c74596238f9669cab35e49f9655d6462
           - variant: compaction-budget
-            commit: 99a0e574c7c85dd9f3c560ff01e71c1ef166b979
-            tree: d5bb4dc7a933fcc4cb8e0ad9c40b6516d484bf89
+            commit: 215435692587b7761c55cd53672a77cdb595885b
+            tree: c66aa065592070bc426346ee0bbed70641af3444
     env:
       SOURCE: ${{ matrix.commit }}
       TREE: ${{ matrix.tree }}
@@ -60,7 +60,7 @@ jobs:
           test -s "$agent"
           export JAVA_TOOL_OPTIONS="-javaagent:$agent"
           mvn -B -ntp -T 2 -pl org.eclipse.jgit.test -am test \
-            -Dtest-fork-count=1 -Djacoco.skip=true 2>&1 | tee core-test.log
+            -Dtest-fork-count=2 2>&1 | tee core-test.log
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: always()
         with:
@@ -83,8 +83,8 @@ jobs:
       matrix:
         rtt: [0, 20]
     env:
-      SOURCE: 99a0e574c7c85dd9f3c560ff01e71c1ef166b979
-      TREE: d5bb4dc7a933fcc4cb8e0ad9c40b6516d484bf89
+      SOURCE: 215435692587b7761c55cd53672a77cdb595885b
+      TREE: c66aa065592070bc426346ee0bbed70641af3444
       APP_SOURCE: f8c2328f831e1ea8447abd84e1146ed8f976663d
       RTT: ${{ matrix.rtt }}
     steps:
@@ -93,7 +93,7 @@ jobs:
           persist-credentials: false
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: 99a0e574c7c85dd9f3c560ff01e71c1ef166b979
+          ref: 215435692587b7761c55cd53672a77cdb595885b
           path: jgit
           persist-credentials: false
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
