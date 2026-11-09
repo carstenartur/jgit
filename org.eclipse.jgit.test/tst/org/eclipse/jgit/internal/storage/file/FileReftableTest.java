@@ -150,6 +150,8 @@ public class FileReftableTest extends SampleDataRepositoryTestCase {
 				u = repo.getRefDatabase().newUpdate(branchName,
 						false);
 				u.setNewObjectId(id);
+				// Only create the ref; a completed competing update must conflict.
+				u.setExpectedOldObjectId(ObjectId.zeroId());
 			}
 
 			@Override
