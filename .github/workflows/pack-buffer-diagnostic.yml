@@ -1,0 +1,80 @@
+name: JGit 7.8.1 PACK buffer diagnostic
+
+on:
+  push:
+    branches: [evidence/pack-buffer-diagnostic-20261109]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pack-buffer-diagnostic-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  four-pairs:
+    if: github.repository == 'carstenartur/jgit' && github.run_attempt == 1
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-java@77dd5b2ce225ea11469928ac317850245a74ae78 # v6.2.0
+        with:
+          distribution: temurin
+          java-version: '21.0.13+9'
+      - name: Test bounded diagnostic gates
+        run: python3 -B -m unittest discover -s .github/scripts -p test_pack_buffer_diagnostic.py -v
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          repository: carstenartur/jgit-storage-hibernate
+          ref: e08ca28e0373b799e558f7670b3648c420020459
+          path: sources/benchmark
+          persist-credentials: false
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          repository: carstenartur/jgit-storage-hibernate
+          ref: 96f1b08d5d0ca32f98508828c78074f12da688fc
+          path: sources/core
+          persist-credentials: false
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          repository: eclipse-jgit/jgit
+          ref: 2784b2cb0164726a2923848dc9c8087925d51b97
+          path: sources/baseline
+          persist-credentials: false
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          repository: carstenartur/jgit
+          ref: 5f1c52f249be4f45c29101eb2371e766d74c91fd
+          path: sources/candidate
+          persist-credentials: false
+      - name: Build immutable artifacts and expanded runtime classpath
+        shell: bash
+        run: |
+          mvn -B -ntp -f sources/baseline/pom.xml -pl org.eclipse.jgit -am package -DskipTests -Dmaven.javadoc.skip=true
+          mvn -B -ntp -f sources/candidate/pom.xml -pl org.eclipse.jgit -am package -DskipTests -Dmaven.javadoc.skip=true
+          mvn -B -ntp -f sources/core/pom.xml -pl jgit-storage-hibernate-core -am package -DskipTests -Dmaven.javadoc.skip=true -Djgit.version=7.8.1.202611041320-r
+          mvn -B -ntp -f sources/benchmark/pom.xml -pl jgit-storage-hibernate-benchmarks -am install -DskipTests -Dmaven.javadoc.skip=true -Djgit.version=7.8.1.202611041320-r
+          mvn -B -ntp -f sources/benchmark/pom.xml -pl jgit-storage-hibernate-benchmarks org.apache.maven.plugins:maven-dependency-plugin:3.10.0:build-classpath -DincludeScope=runtime -Dmdep.outputFile="$RUNNER_TEMP/pack-buffer-classpath.txt" -Djgit.version=7.8.1.202611041320-r
+          command -v psql
+          docker pull postgres:17.10-alpine
+          docker pull ghcr.io/shopify/toxiproxy:2.12.0
+      - name: Run eight fixed attempts; retain failures without retries
+        timeout-minutes: 30
+        run: python3 -B .github/scripts/pack_buffer_diagnostic.py "$GITHUB_WORKSPACE/sources" "$RUNNER_TEMP/pack-buffer-classpath.txt" "$RUNNER_TEMP/pack-buffer-evidence"
+      - name: Scan complete or partial evidence before upload
+        id: privacy
+        if: always()
+        run: |
+          test -f "$RUNNER_TEMP/pack-buffer-evidence/protocol.json"
+          python3 sources/benchmark/.github/scripts/validate_search_database_telemetry.py --privacy-only "$RUNNER_TEMP/pack-buffer-evidence"
+      - name: Retain this new diagnostic only
+        if: always() && steps.privacy.outcome == 'success'
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: jgit-pack-initial-buffer-7.8.1-four-pairs
+          path: ${{ runner.temp }}/pack-buffer-evidence/**
+          if-no-files-found: error
+          retention-days: 30
