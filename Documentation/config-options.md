@@ -176,6 +176,7 @@ existing repository's format is rejected.
 |  option | default | git option | description |
 |---------|---------|------------|-------------|
 | `reftable.autoRefresh` | `false` | &#x20DE; | Whether to auto-refresh the reftable stack if it is out of date. |
+| `reftable.maxCommitCompactionBytes` | Three reference blocks | &#x20DE; | In DFS repositories, integer byte limit for the size of the newest reftable eligible for compaction during a ref update. The effective limit is at most three reference blocks. A value of zero or less disables compaction during ref updates. Explicit maintenance compaction can still combine tables. |
 
 
 ## __repack__ options

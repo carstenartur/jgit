@@ -14,6 +14,7 @@ import static org.eclipse.jgit.internal.storage.dfs.DfsObjDatabase.PackSource.CO
 import static org.eclipse.jgit.internal.storage.dfs.DfsObjDatabase.PackSource.INSERT;
 import static org.eclipse.jgit.internal.storage.pack.PackExt.OBJECT_SIZE_INDEX;
 import static org.eclipse.jgit.internal.storage.pack.PackExt.PACK;
+import static org.eclipse.jgit.internal.storage.pack.PackExt.REFTABLE;
 import static org.eclipse.jgit.lib.Constants.OBJ_BLOB;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
@@ -22,6 +23,7 @@ import static org.junit.Assert.assertTrue;
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.Optional;
+import java.util.function.LongUnaryOperator;
 import java.util.zip.Deflater;
 
 import org.eclipse.jgit.internal.storage.reftable.ReftableConfig;
@@ -40,6 +42,8 @@ import org.junit.Test;
 
 public class DfsPackCompacterTest {
 	private static final int AUTO_ADD_SIZE = 5 * 1024 * 1024; // 5 MiB
+	private static final String FIRST_REF = "refs/heads/first";
+	private static final String SECOND_REF = "refs/heads/second";
 
 	private TestRepository<InMemoryRepository> git;
 	private InMemoryRepository repo;
@@ -229,6 +233,84 @@ public class DfsPackCompacterTest {
 		assertTrue(odb.has(o3));
 		assertEquals(o1, repo.getRefDatabase().findRef(MAIN).getObjectId());
 		assertEquals(o2, repo.getRefDatabase().findRef(DEV).getObjectId());
+	}
+
+	@Test
+	public void defaultCommitCompactionCombinesSmallTables() throws IOException {
+		assertCommitCompaction(null, 1);
+	}
+
+	@Test
+	public void commitCompactionLimitIncludesExactSize() throws IOException {
+		assertCommitCompaction(LongUnaryOperator.identity(), 1);
+	}
+
+	@Test
+	public void commitCompactionLimitBelowTableSizeAppends() throws IOException {
+		assertCommitCompaction(size -> size - 1, 2);
+	}
+
+	@Test
+	public void zeroCommitCompactionLimitStillAllowsMaintenance()
+			throws IOException {
+		ObjectId id = assertCommitCompaction(size -> 0, 2);
+		compact();
+		repo.getRefDatabase().refresh();
+		assertEquals(1, odb.getReftables().length);
+		assertEquals(id, repo.exactRef(FIRST_REF).getObjectId());
+		assertEquals(id, repo.exactRef(SECOND_REF).getObjectId());
+	}
+
+	@Test
+	public void largeCommitCompactionLimitDoesNotRaiseDefault()
+			throws IOException {
+		int blockSize = 256;
+		repo.getConfig().setInt("reftable", null, "blockSize", blockSize);
+		ObjectId id = writePackWithRandomBlob(100);
+		BatchRefUpdate seed = repo.getRefDatabase().newBatchUpdate();
+		seed.disableRefLog();
+		for (int i = 0; i < 48; i++) {
+			seed.addCommand(new ReceiveCommand(ObjectId.zeroId(), id,
+					"refs/heads/seed-" + i));
+		}
+		try (RevWalk rw = new RevWalk(repo)) {
+			seed.execute(rw, NullProgressMonitor.INSTANCE);
+		}
+		assertTrue(seed.getCommands().stream()
+				.allMatch(c -> c.getResult() == ReceiveCommand.Result.OK));
+		assertEquals(1, odb.getReftables().length);
+		assertTrue(odb.getReftables()[0].getPackDescription()
+				.getFileSize(REFTABLE) > 3 * blockSize);
+
+		setCommitCompactionLimit(Long.MAX_VALUE);
+		writeRef(SECOND_REF, ObjectId.zeroId(), id);
+		assertEquals(2, odb.getReftables().length);
+		assertEquals(id, repo.exactRef("refs/heads/seed-0").getObjectId());
+		assertEquals(id, repo.exactRef(SECOND_REF).getObjectId());
+	}
+
+	private ObjectId assertCommitCompaction(LongUnaryOperator limit,
+			int expectedTables) throws IOException {
+		ObjectId id = writePackWithRandomBlob(100);
+		writeRef(FIRST_REF, ObjectId.zeroId(), id);
+		assertEquals(1, odb.getReftables().length);
+		if (limit != null) {
+			long tableSize = odb.getReftables()[0].getPackDescription()
+					.getFileSize(REFTABLE);
+			assertTrue(tableSize > 1);
+			setCommitCompactionLimit(limit.applyAsLong(tableSize));
+		}
+
+		writeRef(SECOND_REF, ObjectId.zeroId(), id);
+		assertEquals(expectedTables, odb.getReftables().length);
+		assertEquals(id, repo.exactRef(FIRST_REF).getObjectId());
+		assertEquals(id, repo.exactRef(SECOND_REF).getObjectId());
+		return id;
+	}
+
+	private void setCommitCompactionLimit(long bytes) {
+		repo.getConfig().setLong("reftable", null, "maxCommitCompactionBytes",
+				bytes);
 	}
 
 	private TestRepository<InMemoryRepository>.CommitBuilder commit() {

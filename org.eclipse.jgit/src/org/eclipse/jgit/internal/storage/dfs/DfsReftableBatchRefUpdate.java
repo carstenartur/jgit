@@ -30,6 +30,7 @@ import java.util.List;
 import java.util.Set;
 
 import static org.eclipse.jgit.internal.storage.pack.PackExt.REFTABLE;
+import static org.eclipse.jgit.lib.ConfigConstants.CONFIG_REFTABLE_SECTION;
 
 /**
  * {@link org.eclipse.jgit.lib.BatchRefUpdate} for
@@ -60,6 +61,11 @@ public class DfsReftableBatchRefUpdate extends ReftableBatchRefUpdate {
 	@Override
 	protected void applyUpdates(List<Ref> newRefs, List<ReceiveCommand> pending)
 			throws IOException {
+		long maxCommitCompactionBytes = refdb.compactDuringCommit()
+				? refdb.getRepository().getConfig().getLong(
+						CONFIG_REFTABLE_SECTION, "maxCommitCompactionBytes", //$NON-NLS-1$
+						Long.MAX_VALUE)
+				: 0;
 		Set<DfsPackDescription> prune = Collections.emptySet();
 		DfsPackDescription pack = odb.newPack(PackSource.INSERT);
 		try (DfsOutputStream out = odb.writeFile(pack, REFTABLE)) {
@@ -67,9 +73,10 @@ public class DfsReftableBatchRefUpdate extends ReftableBatchRefUpdate {
 					.configureReftable(refdb.getReftableConfig(), out);
 
 			ReftableWriter.Stats stats;
-			if (refdb.compactDuringCommit()
+			if (maxCommitCompactionBytes > 0
 					&& newRefs.size() * AVG_BYTES <= cfg.getRefBlockSize()
-					&& canCompactTopOfStack(cfg)) {
+					&& canCompactTopOfStack(Math.min(maxCommitCompactionBytes,
+							3L * cfg.getRefBlockSize()))) {
 				ByteArrayOutputStream tmp = new ByteArrayOutputStream();
 				ReftableWriter rw = new ReftableWriter(cfg, tmp);
 				write(rw, newRefs, pending);
@@ -91,8 +98,7 @@ public class DfsReftableBatchRefUpdate extends ReftableBatchRefUpdate {
 		refdb.clearCache();
 	}
 
-	private boolean canCompactTopOfStack(ReftableConfig cfg)
-			throws IOException {
+	private boolean canCompactTopOfStack(long maxBytes) throws IOException {
 		refdb.getLock().lock();
 		try {
 			DfsReftableStack stack = refdb.stack();
@@ -110,8 +116,7 @@ public class DfsReftableBatchRefUpdate extends ReftableBatchRefUpdate {
 			}
 
 			ReftableReader table = readers.get(lastIdx);
-			int bs = cfg.getRefBlockSize();
-			return table.size() <= 3 * bs;
+			return table.size() <= maxBytes;
 		} finally {
 			refdb.getLock().unlock();
 		}
