@@ -50,7 +50,8 @@ class ReftableOutputStream extends OutputStream {
 
 	ReftableOutputStream(OutputStream os, int bs, boolean align) {
 		blockSize = bs;
-		blockBuf = new byte[bs];
+		// Small tables need not allocate their full configured block size.
+		blockBuf = new byte[Math.min(bs, 4 << 10)];
 		alignBlocks = align;
 		out = new CountingOutputStream(os);
 	}
@@ -138,9 +139,15 @@ class ReftableOutputStream extends OutputStream {
 	}
 
 	private void ensureBytesAvailableInBlockBuf(int cnt) {
-		if (cur + cnt > blockBuf.length) {
-			int n = Math.max(cur + cnt, blockBuf.length * 2);
-			blockBuf = Arrays.copyOf(blockBuf, n);
+		int required = cur + cnt;
+		if (required > blockBuf.length) {
+			// Round up for reuse by subsequent blocks without exceeding a
+			// logical block's size when the request already fits in it.
+			int capacity = Integer.highestOneBit(required - 1) << 1;
+			if (required <= blockSize) {
+				capacity = Math.min(capacity, blockSize);
+			}
+			blockBuf = Arrays.copyOf(blockBuf, Math.max(required, capacity));
 		}
 	}
 
@@ -151,7 +158,8 @@ class ReftableOutputStream extends OutputStream {
 		}
 	}
 
-	void beginBlock(byte type) {
+	void beginBlock(byte type, int size) {
+		ensureBytesAvailableInBlockBuf(size);
 		blockType = type;
 		blockStart = cur;
 		cur += 4; // reserve space for 4-byte block header.

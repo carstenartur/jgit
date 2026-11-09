@@ -200,7 +200,7 @@ class BlockWriter {
 	}
 
 	void writeTo(ReftableOutputStream os) throws IOException {
-		os.beginBlock(blockType);
+		os.beginBlock(blockType, currentSize());
 		IntList restarts = new IntList(restartCnt);
 		for (Entry entry : entries) {
 			if (entry.restart) {
