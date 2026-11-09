@@ -1,4 +1,4 @@
-"""One preregistered, native 7.8.1 PACK-buffer diagnostic; no retries or policy qualification."""
+"""One preregistered native 7.8.1 diagnostic of both initial buffers; no retries or policy qualification."""
 import hashlib
 import json
 import math
@@ -17,7 +17,8 @@ import urllib.request
 import zipfile
 
 PINS = dict(benchmark="e08ca28e0373b799e558f7670b3648c420020459", core="96f1b08d5d0ca32f98508828c78074f12da688fc",
-            baseline="2784b2cb0164726a2923848dc9c8087925d51b97", candidate="5f1c52f249be4f45c29101eb2371e766d74c91fd")
+            baseline="2784b2cb0164726a2923848dc9c8087925d51b97", candidate="5b65cb64ec528344b459f43bf451eba11bdbd605")
+STUDY = "jgit-both-initial-buffers-7.8.1-four-pairs"
 ORDER = ("baseline", "candidate", "candidate", "baseline", "baseline", "candidate", "candidate", "baseline")
 DFS = "org/eclipse/jgit/internal/storage/dfs/DfsInserter.class"
 PACK = DFS.replace(".class", "$PackStream.class")
@@ -62,10 +63,10 @@ def entries(path):
 def audit_jars(baseline, candidate):
     old, new = entries(baseline), entries(candidate)
     require(old.keys() == new.keys(), "JAR entry inventories differ")
-    require(old[REF] == new[REF] and old[PACK] != new[PACK], "Reftable changed or PACK fix missing")
+    require(old[REF] != new[REF] and old[PACK] != new[PACK], "One of the two initial-buffer fixes is missing")
     changed = sorted(k for k in old if old[k] != new[k])
     metadata = {"META-INF/MANIFEST.MF", "META-INF/maven/org.eclipse.jgit/org.eclipse.jgit/pom.properties"}
-    require(all(k in metadata or k == DFS or (k.startswith(DFS[:-6] + "$") and k.endswith(".class"))
+    require(all(k in metadata or k in {DFS, REF} or (k.startswith(DFS[:-6] + "$") and k.endswith(".class"))
                 for k in changed), "Unrelated JAR class/resource changed")
     return changed
 
@@ -114,7 +115,7 @@ def summary(rows, valid=True):
         values = {r["variant"]: r["score"] for r in rows if r["pair"] == pair and r["status"] == "completed"}
         if values.keys() == {"baseline", "candidate"}:
             ratios.append(math.log(values["candidate"] / values["baseline"]))
-    result = dict(schema="jgit-pack-buffer-summary/v1", diagnosticOnly=True, policyQualification=False,
+    result = dict(schema="jgit-both-initial-buffers-summary/v1", studyId=STUDY, diagnosticOnly=True, policyQualification=False,
                   historicalStudyReplacement=False, provenanceValid=valid, completePairs=len(ratios), effectPercent=None, interval95Percent=None)
     if len(ratios) == 4 and valid:
         mean, half = statistics.mean(ratios), 3.182446305284263 * statistics.stdev(ratios) / 2
@@ -249,6 +250,12 @@ def stop_group(process):
     process.wait(timeout=10)
 
 
+def thrown_oom(text):
+    # A complete exception header excludes ordinary class-load entries, even without frames.
+    return re.search(r'(?m)^[ \t]*(?:(?:Suppressed|Caused by):[ \t]*|Exception in thread "[^"]*"[ \t]+)?'
+                     r'java\.lang\.OutOfMemoryError(?::[^\r\n]*)?\r?$', text) is not None
+
+
 def run_fork(row, paths, jars, java, connection, out, pids):
     base = out / "raw" / f"{row['ordinal']:02d}-{row['variant']}"
     cp = os.pathsep.join(str(p) for p in paths[row["variant"]])
@@ -273,7 +280,7 @@ def run_fork(row, paths, jars, java, connection, out, pids):
         code = process.returncode
     result = dict(exitCode=code, status="timed_out" if timed_out else "failed", identityVerified=False)
     logs = "\n".join(p.read_text(errors="replace") for p in base.parent.glob(base.name + "*.log*"))
-    result.update(oomDetected="OutOfMemoryError" in logs, gcLockerWarningDetected="Retried waiting for GCLocker" in logs)
+    result.update(oomDetected=thrown_oom(logs), gcLockerWarningDetected="Retried waiting for GCLocker" in logs)
     identity = "\n".join(p.read_text() for p in base.parent.glob(base.name + "-identity.log*"))
     anchors = {k: jars[row["variant"]] for k in (DFS, PACK, REF)} | {CORE: jars["core"], BENCH: paths[row["variant"]][0], PROF: paths[row["variant"]][0]}
     try:
@@ -305,7 +312,7 @@ def main(sources, cp_file, out):
         (out / directory).mkdir()
     rows, name = planned(), "pack-buffer-" + str(os.getpid())
     save(out / "outcomes.json", rows)
-    save(out / "protocol.json", dict(schema="jgit-pack-buffer-controlled/v1", diagnosticOnly=True, policyQualification=False, historicalStudyReplacement=False,
+    save(out / "protocol.json", dict(schema="jgit-both-initial-buffers-controlled/v1", studyId=STUDY, oomDetection="exception-header", diagnosticOnly=True, policyQualification=False, historicalStudyReplacement=False,
          pins=PINS, order=ORDER, pairCount=4, params=PARAMS, threads=16, warmup="2 x 3s", measurement="3 x 5s", jdk="21.0.13+9", heap="256m/1024m", iterationTimeoutSeconds=120, attemptTimeoutSeconds=180, terminationGraceSeconds=10, killVerificationSeconds=10, retries=0))
     try:
         require(not any(os.environ.get(k) for k in ("JAVA_TOOL_OPTIONS", "JDK_JAVA_OPTIONS", "_JAVA_OPTIONS")), "Injected JVM options")

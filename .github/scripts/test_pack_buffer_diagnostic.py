@@ -1,4 +1,4 @@
-"""Safety gates for the single, fixed PACK-buffer diagnostic."""
+"""Safety gates for the fixed diagnostic of both initial buffers."""
 import importlib.util
 import math
 import os
@@ -31,7 +31,7 @@ class DiagnosticTest(unittest.TestCase):
     def inputs(self):
         old = {d.DFS: b"outer", d.PACK: b"old", d.REF: b"unchanged", "org/eclipse/jgit/lib/ObjectInserter.class": b"inserter"}
         baseline = self.jar("baseline.jar", old)
-        candidate = self.jar("candidate.jar", dict(old, **{d.PACK: b"new"}))
+        candidate = self.jar("candidate.jar", dict(old, **{d.PACK: b"new", d.REF: b"lazy"}))
         core = self.jar("core.jar", {d.CORE: b"original alignment"})
         benchmark = self.jar("benchmark.jar", {d.BENCH: b"benchmark", d.PROF: b"profiler"})
         return baseline, candidate, core, benchmark
@@ -85,13 +85,23 @@ class DiagnosticTest(unittest.TestCase):
                 pass
             process.wait(timeout=10)
 
-    def test_unrelated_or_reftable_change_is_rejected(self):
+    def test_unrelated_change_or_missing_buffer_fix_is_rejected(self):
         baseline, candidate, _, _ = self.inputs()
-        self.assertEqual([d.PACK], d.audit_jars(baseline, candidate))
-        for extra in ({d.REF: b"changed"}, {"unrelated.class": b"new"}):
-            bad = self.jar("bad.jar", {d.DFS: b"outer", d.PACK: b"new", d.REF: b"unchanged", "org/eclipse/jgit/lib/ObjectInserter.class": b"inserter", **extra})
+        self.assertEqual([d.PACK, d.REF], d.audit_jars(baseline, candidate))
+        for extra in ({d.REF: b"unchanged"}, {d.PACK: b"old"}, {"org/eclipse/jgit/lib/ObjectInserter.class": b"changed"}, {"unrelated.class": b"new"}):
+            bad = self.jar("bad.jar", {d.DFS: b"outer", d.PACK: b"new", d.REF: b"lazy", "org/eclipse/jgit/lib/ObjectInserter.class": b"inserter", **extra})
             with self.assertRaises(ValueError):
                 d.audit_jars(baseline, bad)
+
+    def test_oom_detection_requires_an_exception_header(self):
+        loaded = "[14ms][4986][info][class,load] java.lang.OutOfMemoryError source: shared objects file\n"
+        self.assertFalse(d.thrown_oom(loaded))
+        self.assertFalse(d.thrown_oom(loaded + "Retried waiting for GCLocker too often allocating 131074 words\n"))
+        for prefix in ("", "\tSuppressed: ", "Caused by: ", 'Exception in thread "worker-1" '):
+            header = prefix + "java.lang.OutOfMemoryError: Java heap space\n"
+            self.assertTrue(d.thrown_oom(loaded + header))
+            self.assertTrue(d.thrown_oom(loaded + header + "\tat org.eclipse.jgit.internal.storage.reftable.ReftableOutputStream.<init>(ReftableOutputStream.java:53)\n"))
+        self.assertTrue(d.thrown_oom("java.lang.OutOfMemoryError"))
 
     def test_failure_consumes_attempt_and_all_eight_are_retained(self):
         calls, snapshots = [], []

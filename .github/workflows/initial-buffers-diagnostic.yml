@@ -1,14 +1,14 @@
-name: JGit 7.8.1 PACK buffer diagnostic
+name: JGit 7.8.1 both initial buffers diagnostic
 
 on:
   push:
-    branches: [evidence/pack-buffer-diagnostic-20261109]
+    branches: [evidence/jgit-initial-buffers-20261109]
 
 permissions:
   contents: read
 
 concurrency:
-  group: pack-buffer-diagnostic-${{ github.ref }}
+  group: jgit-initial-buffers-diagnostic-${{ github.ref }}
   cancel-in-progress: false
 
 jobs:
@@ -47,7 +47,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           repository: carstenartur/jgit
-          ref: 5f1c52f249be4f45c29101eb2371e766d74c91fd
+          ref: 5b65cb64ec528344b459f43bf451eba11bdbd605
           path: sources/candidate
           persist-credentials: false
       - name: Build immutable artifacts and expanded runtime classpath
@@ -57,24 +57,24 @@ jobs:
           mvn -B -ntp -f sources/candidate/pom.xml -pl org.eclipse.jgit -am package -DskipTests -Dmaven.javadoc.skip=true
           mvn -B -ntp -f sources/core/pom.xml -pl jgit-storage-hibernate-core -am package -DskipTests -Dmaven.javadoc.skip=true -Djgit.version=7.8.1.202611041320-r
           mvn -B -ntp -f sources/benchmark/pom.xml -pl jgit-storage-hibernate-benchmarks -am install -DskipTests -Dmaven.javadoc.skip=true -Djgit.version=7.8.1.202611041320-r
-          mvn -B -ntp -f sources/benchmark/pom.xml -pl jgit-storage-hibernate-benchmarks org.apache.maven.plugins:maven-dependency-plugin:3.10.0:build-classpath -DincludeScope=runtime -Dmdep.outputFile="$RUNNER_TEMP/pack-buffer-classpath.txt" -Djgit.version=7.8.1.202611041320-r
+          mvn -B -ntp -f sources/benchmark/pom.xml -pl jgit-storage-hibernate-benchmarks org.apache.maven.plugins:maven-dependency-plugin:3.10.0:build-classpath -DincludeScope=runtime -Dmdep.outputFile="$RUNNER_TEMP/initial-buffers-classpath.txt" -Djgit.version=7.8.1.202611041320-r
           command -v psql
           docker pull postgres:17.10-alpine
           docker pull ghcr.io/shopify/toxiproxy:2.12.0
       - name: Run eight fixed attempts; retain failures without retries
         timeout-minutes: 30
-        run: python3 -B .github/scripts/pack_buffer_diagnostic.py "$GITHUB_WORKSPACE/sources" "$RUNNER_TEMP/pack-buffer-classpath.txt" "$RUNNER_TEMP/pack-buffer-evidence"
+        run: python3 -B .github/scripts/pack_buffer_diagnostic.py "$GITHUB_WORKSPACE/sources" "$RUNNER_TEMP/initial-buffers-classpath.txt" "$RUNNER_TEMP/initial-buffers-evidence"
       - name: Scan complete or partial evidence before upload
         id: privacy
         if: always()
         run: |
-          test -f "$RUNNER_TEMP/pack-buffer-evidence/protocol.json"
-          python3 sources/benchmark/.github/scripts/validate_search_database_telemetry.py --privacy-only "$RUNNER_TEMP/pack-buffer-evidence"
+          test -f "$RUNNER_TEMP/initial-buffers-evidence/protocol.json"
+          python3 sources/benchmark/.github/scripts/validate_search_database_telemetry.py --privacy-only "$RUNNER_TEMP/initial-buffers-evidence"
       - name: Retain this new diagnostic only
         if: always() && steps.privacy.outcome == 'success'
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: jgit-pack-initial-buffer-7.8.1-four-pairs
-          path: ${{ runner.temp }}/pack-buffer-evidence/**
+          name: jgit-both-initial-buffers-7.8.1-four-pairs
+          path: ${{ runner.temp }}/initial-buffers-evidence/**
           if-no-files-found: error
           retention-days: 30
