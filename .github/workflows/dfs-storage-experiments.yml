@@ -1,0 +1,150 @@
+name: DFS storage experiments
+
+on:
+  push:
+    branches: [evidence/dfs-storage-experiments-20261109]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: dfs-storage-experiments-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  core:
+    if: github.repository == 'carstenartur/jgit' && !github.event.deleted
+    name: JGit core / ${{ matrix.variant }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - variant: baseline
+            commit: 7fdfbfac5fa62640548990ee25284ee6dd4af613
+            tree: ac55db731bbd01544e5005b9c3fae8febc7347ac
+          - variant: reftable-buffer
+            commit: d09a0820f59e68433d8f1f447c8948917255f1dc
+            tree: ddb46617c0bee58d8d777466b95e274e91038274
+          - variant: pack-buffer
+            commit: 0c4c17027bbb1507d547c1094405cdad25cb6b4d
+            tree: 50e296450ead29af899d8244946ec9a2c2ada8b5
+          - variant: compaction-budget
+            commit: 99a0e574c7c85dd9f3c560ff01e71c1ef166b979
+            tree: d5bb4dc7a933fcc4cb8e0ad9c40b6516d484bf89
+    env:
+      SOURCE: ${{ matrix.commit }}
+      TREE: ${{ matrix.tree }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ matrix.commit }}
+          persist-credentials: false
+      - uses: actions/setup-java@77dd5b2ce225ea11469928ac317850245a74ae78 # v6.2.0
+        with:
+          distribution: temurin
+          java-version: '25.0.5+8'
+          cache: maven
+      - name: Run complete Core test suite with exact source and Mockito agent
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$SOURCE"
+          test "$(git rev-parse 'HEAD^{tree}')" = "$TREE"
+          git rev-parse HEAD 'HEAD^{tree}' > source.txt
+          java -version 2>&1 | tee java.txt
+          mvn -B -ntp org.apache.maven.plugins:maven-dependency-plugin:3.10.0:get \
+            -Dartifact=org.mockito:mockito-core:5.24.0 -Dtransitive=false
+          agent="$HOME/.m2/repository/org/mockito/mockito-core/5.24.0/mockito-core-5.24.0.jar"
+          test -s "$agent"
+          export JAVA_TOOL_OPTIONS="-javaagent:$agent"
+          mvn -B -ntp -T 2 -pl org.eclipse.jgit.test -am test \
+            -Dtest-fork-count=2 -Djacoco.skip=true 2>&1 | tee core-test.log
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: always()
+        with:
+          name: dfs-core-${{ matrix.variant }}-attempt-${{ github.run_attempt }}
+          path: |
+            source.txt
+            java.txt
+            core-test.log
+            org.eclipse.jgit.test/target/surefire-reports/TEST-*.xml
+          if-no-files-found: error
+          retention-days: 30
+
+  native:
+    if: github.repository == 'carstenartur/jgit' && !github.event.deleted
+    name: PostgreSQL ref compaction / ${{ matrix.rtt }} ms
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    strategy:
+      fail-fast: false
+      matrix:
+        rtt: [0, 20]
+    env:
+      SOURCE: 99a0e574c7c85dd9f3c560ff01e71c1ef166b979
+      TREE: d5bb4dc7a933fcc4cb8e0ad9c40b6516d484bf89
+      APP_SOURCE: f8c2328f831e1ea8447abd84e1146ed8f976663d
+      RTT: ${{ matrix.rtt }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: 99a0e574c7c85dd9f3c560ff01e71c1ef166b979
+          path: jgit
+          persist-credentials: false
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: carstenartur/jgit-storage-hibernate
+          ref: f8c2328f831e1ea8447abd84e1146ed8f976663d
+          path: hibernate
+          persist-credentials: false
+      - uses: actions/setup-java@77dd5b2ce225ea11469928ac317850245a74ae78 # v6.2.0
+        with:
+          distribution: temurin
+          java-version: '25.0.5+8'
+      - name: Build the pinned JGit candidate and record its JAR
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p native-evidence
+          test "$(git -C jgit rev-parse HEAD)" = "$SOURCE"
+          test "$(git -C jgit rev-parse 'HEAD^{tree}')" = "$TREE"
+          test "$(git -C hibernate rev-parse HEAD)" = "$APP_SOURCE"
+          printf 'jgit=%s\njgit_tree=%s\nhibernate=%s\n' "$SOURCE" "$TREE" "$APP_SOURCE" > native-evidence/source.txt
+          java -version 2>&1 | tee native-evidence/java.txt
+          mvn -B -ntp -f jgit/pom.xml -pl org.eclipse.jgit -am install \
+            -DskipTests -Dmaven.javadoc.skip=true 2>&1 | tee native-evidence/jgit-build.log
+          jar="$HOME/.m2/repository/org/eclipse/jgit/org.eclipse.jgit/8.0.0-SNAPSHOT/org.eclipse.jgit-8.0.0-SNAPSHOT.jar"
+          test -s "$jar"
+          sha256sum "$jar" > native-evidence/jgit-jar.sha256
+          sha256sum .github/evidence/ReftableCommitCompactionNativeTest.java > native-evidence/harness.sha256
+          echo "JGIT_EXPERIMENT_JAR=$jar" >> "$GITHUB_ENV"
+      - name: Test each compaction policy through the real Hibernate ref update
+        shell: bash
+        run: |
+          set -euo pipefail
+          cp .github/evidence/ReftableCommitCompactionNativeTest.java \
+            hibernate/jgit-storage-hibernate-benchmarks/src/test/java/io/github/carstenartur/jgit/storage/hibernate/benchmark/
+          mvn -B -ntp -f hibernate/pom.xml -pl jgit-storage-hibernate-benchmarks -am test \
+            -Djgit.version=8.0.0-SNAPSHOT -Dtest=ReftableCommitCompactionNativeTest \
+            -Dsurefire.failIfNoSpecifiedTests=false -Djacoco.skip=true "-Dbenchmark.refCompaction.rttMillis=$RTT" \
+            "-Dbenchmark.refCompaction.jgitJar=$JGIT_EXPERIMENT_JAR" \
+            "-Dbenchmark.refCompaction.output=$GITHUB_WORKSPACE/native-evidence/ref-compaction.csv" \
+            2>&1 | tee native-evidence/hibernate-test.log
+          cp hibernate/jgit-storage-hibernate-benchmarks/target/surefire-reports/TEST-*ReftableCommitCompactionNativeTest.xml native-evidence/
+          test "$(wc -l < native-evidence/ref-compaction.csv)" -eq 19
+      - name: Scan experimental evidence
+        if: always()
+        id: privacy
+        run: python3 hibernate/.github/scripts/validate_search_database_telemetry.py --privacy-only native-evidence
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: always() && steps.privacy.outcome == 'success'
+        with:
+          name: dfs-compaction-postgresql-${{ matrix.rtt }}ms-attempt-${{ github.run_attempt }}
+          path: native-evidence/
+          if-no-files-found: error
+          retention-days: 30
